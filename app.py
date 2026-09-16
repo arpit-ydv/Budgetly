@@ -262,6 +262,7 @@ def delete_expense(expense_id):
         conn.commit()
     return redirect(request.referrer or url_for("index"))
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True)
