@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Budgetly — Smart Expense Tracker</title>
+  <title>Budgetly — Smart Expense Insights</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -33,7 +33,7 @@
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-white">Budgetly</h1>
-          <p class="text-xs text-slate-400">Welcome back, <span class="text-indigo-400 font-semibold">{{ username }}</span></p>
+          <p class="text-xs text-slate-400">Welcome, <span class="text-indigo-400 font-semibold">{{ username }}</span></p>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -46,12 +46,40 @@
       </div>
     </header>
 
-    <!-- Monthly Budget Progress Bar Card -->
-    <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-3">
+    <!-- Key Metrics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl">
+        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">Top Expense Category</span>
+        <div class="text-2xl font-black tracking-tight text-white flex items-center justify-between">
+          <span>{{ top_category }}</span>
+          <span class="text-xs text-indigo-400 font-medium px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">{{ top_cat_pct }}% of spend</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">Primary expenditure sector</p>
+      </div>
+
+      <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl">
+        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">Daily Burn Rate</span>
+        <div class="text-2xl font-black tracking-tight text-indigo-400 font-mono">
+          ₹{{ "%.2f"|format(daily_avg) }}
+        </div>
+        <p class="text-xs text-slate-500 mt-2">Average spend per elapsed day</p>
+      </div>
+
+      <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl">
+        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">End of Month Forecast</span>
+        <div class="text-2xl font-black tracking-tight font-mono {% if projected_spend > budget %}text-rose-400{% else %}text-emerald-400{% endif %}">
+          ₹{{ "%.2f"|format(projected_spend) }}
+        </div>
+        <p class="text-xs text-slate-500 mt-2">Pace projection vs ₹{{ "%.0f"|format(budget) }} cap</p>
+      </div>
+    </div>
+
+    <!-- Monthly Budget Bar -->
+    <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-3">
       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
         <div>
-          <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block">Monthly Spending Target</span>
-          <div class="text-2xl font-black text-white mt-0.5">
+          <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block">Monthly Budget Utilisation</span>
+          <div class="text-2xl font-black text-white mt-0.5 font-mono">
             ₹{{ "%.2f"|format(monthly_spent) }} <span class="text-sm font-medium text-slate-400">/ ₹{{ "%.2f"|format(budget) }}</span>
           </div>
         </div>
@@ -61,118 +89,128 @@
           </span>
         </div>
       </div>
-
-      <!-- Progress Track -->
-      <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
+      <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
         <div 
           class="h-full rounded-full transition-all duration-500 {% if budget_pct >= 90 %}bg-gradient-to-r from-rose-500 to-rose-600{% elif budget_pct >= 75 %}bg-gradient-to-r from-amber-400 to-amber-500{% else %}bg-gradient-to-r from-indigo-500 to-emerald-400{% endif %}" 
           style="width: {{ budget_pct }}%"
         ></div>
       </div>
-      <div class="flex justify-between text-[11px] text-slate-500">
-        <span>₹0</span>
-        <span>Remaining: ₹{{ "%.2f"|format([budget - monthly_spent, 0.0]|max) }}</span>
-        <span>Limit: ₹{{ "%.2f"|format(budget) }}</span>
+    </div>
+
+    <!-- Interactive Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Line Chart: Daily Trend -->
+      <div class="lg:col-span-7 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Spending Velocity & Timeline</h2>
+          <span class="text-xs text-slate-500">Day by Day</span>
+        </div>
+        <div class="w-full h-56">
+          <canvas id="trendChart"></canvas>
+        </div>
+        <p class="text-xs text-slate-500 pt-3 border-t border-slate-800/80 mt-2">
+          Shows spikes in expenditure over chronological transaction dates
+        </p>
+      </div>
+
+      <!-- Doughnut Chart: Categories -->
+      <div class="lg:col-span-5 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Category Share</h2>
+          <span class="text-xs text-slate-500">Allocation</span>
+        </div>
+        <div class="w-full h-56 flex items-center justify-center">
+          <canvas id="categoryChart"></canvas>
+        </div>
+        <p class="text-xs text-slate-500 pt-3 border-t border-slate-800/80 mt-2 text-center">
+          Portfolio distribution by recorded tag
+        </p>
       </div>
     </div>
 
-    <!-- Filters Strip -->
-    <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
-      <div class="text-xs font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-2">
-        <span>🔍 Filters</span>
-        {% if selected_month or selected_category %}
-          <a href="/" class="text-[11px] lowercase text-indigo-400 hover:underline">(reset all)</a>
-        {% endif %}
-      </div>
-
-      <form method="GET" action="/" class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-        <!-- Month Filter -->
-        <select name="month" onchange="this.form.submit()" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
-          <option value="">All Months</option>
-          {% for m in available_months %}
-            <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
-          {% endfor %}
-        </select>
-
-        <!-- Category Filter -->
-        <select name="category" onchange="this.form.submit()" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
-          <option value="">All Categories</option>
-          <option value="Food" {% if selected_category == 'Food' %}selected{% endif %}>Food</option>
-          <option value="Travel" {% if selected_category == 'Travel' %}selected{% endif %}>Travel</option>
-          <option value="Bills" {% if selected_category == 'Bills' %}selected{% endif %}>Bills</option>
-          <option value="Groceries" {% if selected_category == 'Groceries' %}selected{% endif %}>Groceries</option>
-          <option value="Shopping" {% if selected_category == 'Shopping' %}selected{% endif %}>Shopping</option>
-          <option value="Other" {% if selected_category == 'Other' %}selected{% endif %}>Other</option>
-        </select>
-      </form>
-    </div>
-
-    <!-- Main Grid: Form + Chart -->
+    <!-- Filters + Add Form -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
       
-      <!-- Expense Entry Form -->
-      <div class="lg:col-span-7 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between mb-5">
-            <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Add New Expense</h2>
-            <span class="text-xs text-indigo-400 font-medium">Quick Entry</span>
+      <!-- Entry Form -->
+      <div class="lg:col-span-7 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl">
+        <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300 mb-4">Add Transaction</h2>
+        <form action="/add" method="POST" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Description</label>
+            <input type="text" name="title" placeholder="e.g., Dinner, Fuel, Groceries" required 
+                   class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
           </div>
 
-          <form action="/add" method="POST" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Description</label>
-              <input type="text" name="title" placeholder="e.g., Grocery shopping, Metro card" required 
+              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Amount (₹)</label>
+              <input type="number" step="0.01" name="amount" placeholder="0.00" required 
                      class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Amount (₹)</label>
-                <input type="number" step="0.01" name="amount" placeholder="0.00" required 
-                       class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
-              </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Category</label>
+              <select name="category" class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                <option value="Food">🍽️ Food & Dining</option>
+                <option value="Travel">🚗 Travel & Commute</option>
+                <option value="Bills">💡 Bills & Utilities</option>
+                <option value="Groceries">🛒 Groceries</option>
+                <option value="Shopping">🛍️ Shopping</option>
+                <option value="Other">✨ Other</option>
+              </select>
+            </div>
+          </div>
 
-              <div>
-                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Category</label>
-                <select name="category" class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
-                  <option value="Food">🍽️ Food & Dining</option>
-                  <option value="Travel">🚗 Travel & Commute</option>
-                  <option value="Bills">💡 Bills & Utilities</option>
-                  <option value="Groceries">🛒 Groceries</option>
-                  <option value="Shopping">🛍️ Shopping</option>
-                  <option value="Other">✨ Other</option>
-                </select>
-              </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Date</label>
+            <input type="date" name="date" id="datePicker" class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+          </div>
+
+          <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-sm py-2.5 rounded-xl transition shadow-lg shadow-indigo-500/25 active:scale-[0.99]">
+            + Record Expense
+          </button>
+        </form>
+      </div>
+
+      <!-- Quick Filter Widget -->
+      <div class="lg:col-span-5 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Filter View</h2>
+            {% if selected_month or selected_category %}
+              <a href="/" class="text-xs text-indigo-400 hover:underline">Reset Filters</a>
+            {% endif %}
+          </div>
+          <p class="text-xs text-slate-400 mb-4">Isolate metrics and graphs by timeline or specific expenditure buckets.</p>
+          <form method="GET" action="/" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Target Month</label>
+              <select name="month" onchange="this.form.submit()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+                <option value="">All Historical Records</option>
+                {% for m in available_months %}
+                  <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
             </div>
 
             <div>
-              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Date</label>
-              <input type="date" name="date" id="datePicker" class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
-            </div>
-
-            <div class="pt-2">
-              <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-sm py-3 rounded-xl transition shadow-lg shadow-indigo-500/25 active:scale-[0.99]">
-                + Record Expense
-              </button>
+              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Category</label>
+              <select name="category" onchange="this.form.submit()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+                <option value="">All Categories</option>
+                <option value="Food" {% if selected_category == 'Food' %}selected{% endif %}>Food</option>
+                <option value="Travel" {% if selected_category == 'Travel' %}selected{% endif %}>Travel</option>
+                <option value="Bills" {% if selected_category == 'Bills' %}selected{% endif %}>Bills</option>
+                <option value="Groceries" {% if selected_category == 'Groceries' %}selected{% endif %}>Groceries</option>
+                <option value="Shopping" {% if selected_category == 'Shopping' %}selected{% endif %}>Shopping</option>
+                <option value="Other" {% if selected_category == 'Other' %}selected{% endif %}>Other</option>
+              </select>
             </div>
           </form>
         </div>
-      </div>
-
-      <!-- Donut Chart -->
-      <div class="lg:col-span-5 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Category Breakdown</h2>
-          <span class="text-xs text-slate-500">Filtered view</span>
+        <div class="pt-4 border-t border-slate-800/80 text-xs text-slate-500 flex justify-between">
+          <span>Active View Sum:</span>
+          <span class="font-mono text-white font-bold">₹{{ "%.2f"|format(total) }}</span>
         </div>
-
-        <div class="w-full h-56 flex items-center justify-center my-auto">
-          <canvas id="categoryChart"></canvas>
-        </div>
-
-        <p class="text-center text-xs text-slate-500 pt-3 border-t border-slate-800">
-          Showing distribution for selected criteria
-        </p>
       </div>
 
     </div>
@@ -180,33 +218,33 @@
     <!-- History Table Card -->
     <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
-        <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Filtered Transactions</h2>
-        <span class="text-xs text-indigo-400 font-mono">View Total: ₹{{ "%.2f"|format(total) }}</span>
+        <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Transaction Register</h2>
+        <span class="text-xs text-slate-400 font-mono">{{ expenses|length }} entries recorded</span>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="bg-slate-800/40 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
-              <th class="py-3.5 px-6">Date</th>
-              <th class="py-3.5 px-6">Description</th>
-              <th class="py-3.5 px-6">Category</th>
-              <th class="py-3.5 px-6 text-right">Amount</th>
-              <th class="py-3.5 px-6 text-center">Action</th>
+              <th class="py-3 px-6">Date</th>
+              <th class="py-3 px-6">Description</th>
+              <th class="py-3 px-6">Category</th>
+              <th class="py-3 px-6 text-right">Amount</th>
+              <th class="py-3 px-6 text-center">Action</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-800/60 text-sm">
             {% for item in expenses %}
             <tr class="hover:bg-slate-800/30 transition">
-              <td class="py-3.5 px-6 text-slate-400 text-xs font-mono">{{ item.date }}</td>
-              <td class="py-3.5 px-6 font-medium text-slate-200">{{ item.title }}</td>
-              <td class="py-3.5 px-6">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-indigo-300 border border-slate-700/50">
+              <td class="py-3 px-6 text-slate-400 text-xs font-mono">{{ item.date }}</td>
+              <td class="py-3 px-6 font-medium text-slate-200">{{ item.title }}</td>
+              <td class="py-3 px-6">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-indigo-300 border border-slate-700/50">
                   {{ item.category }}
                 </span>
               </td>
-              <td class="py-3.5 px-6 text-right font-semibold text-slate-100 font-mono">₹{{ "%.2f"|format(item.amount) }}</td>
-              <td class="py-3.5 px-6 text-center">
+              <td class="py-3 px-6 text-right font-semibold text-slate-100 font-mono">₹{{ "%.2f"|format(item.amount) }}</td>
+              <td class="py-3 px-6 text-center">
                 <a href="/delete/{{ item.id }}" class="text-rose-400 hover:text-rose-300 text-xs font-medium transition hover:underline">
                   Delete
                 </a>
@@ -214,8 +252,8 @@
             </tr>
             {% else %}
             <tr>
-              <td colspan="5" class="py-12 text-center text-slate-500 text-sm">
-                No matching transactions found.
+              <td colspan="5" class="py-10 text-center text-slate-500 text-sm">
+                No matching transactions recorded.
               </td>
             </tr>
             {% endfor %}
@@ -229,12 +267,12 @@
   <!-- Set Budget Modal -->
   <div id="budgetModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-      <h3 class="text-base font-bold text-white">Adjust Monthly Budget</h3>
-      <p class="text-xs text-slate-400">Set your spending ceiling for the month to keep track of your budget limits.</p>
+      <h3 class="text-base font-bold text-white">Adjust Spending Target</h3>
+      <p class="text-xs text-slate-400">Specify your monthly budget ceiling to calibrate burn rate projections.</p>
       
       <form action="/set-budget" method="POST" class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Budget Target (₹)</label>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Monthly Cap (₹)</label>
           <input type="number" step="100" name="budget" value="{{ budget }}" required
                  class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
         </div>
@@ -251,16 +289,19 @@
     </div>
   </div>
 
-  <!-- Chart & Date Script -->
+  <!-- Scripts: Charts & Dynamic Inputs -->
   <script>
     document.getElementById('datePicker').valueAsDate = new Date();
 
     const categories = {{ categories_json|safe }};
     const amounts = {{ amounts_json|safe }};
-    const ctx = document.getElementById('categoryChart').getContext('2d');
+    const trendDates = {{ trend_dates_json|safe }};
+    const trendAmounts = {{ trend_amounts_json|safe }};
 
+    // 1. Category Doughnut Chart
+    const catCtx = document.getElementById('categoryChart').getContext('2d');
     if (categories.length > 0) {
-      new Chart(ctx, {
+      new Chart(catCtx, {
         type: 'doughnut',
         data: {
           labels: categories,
@@ -277,22 +318,52 @@
           plugins: {
             legend: {
               position: 'bottom',
-              labels: {
-                color: '#94a3b8',
-                boxWidth: 10,
-                padding: 14,
-                font: { size: 11, family: 'Plus Jakarta Sans' }
-              }
+              labels: { color: '#94a3b8', boxWidth: 8, padding: 12, font: { size: 10 } }
             }
           },
-          cutout: '72%'
+          cutout: '70%'
         }
       });
-    } else {
-      ctx.font = "13px Plus Jakarta Sans";
-      ctx.fillStyle = "#64748b";
-      ctx.textAlign = "center";
-      ctx.fillText("No data for selection", 110, 110);
+    }
+
+    // 2. Spending Trend Line Chart
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    if (trendDates.length > 0) {
+      new Chart(trendCtx, {
+        type: 'line',
+        data: {
+          labels: trendDates,
+          datasets: [{
+            label: 'Spent (₹)',
+            data: trendAmounts,
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.12)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#818cf8',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#64748b', font: { size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => '₹' + val }
+            }
+          }
+        }
+      });
     }
   </script>
 </body>

@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import calendar
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash
@@ -31,12 +32,13 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """)
-        # Safe migration if table already exists without monthly_budget
         try:
             cursor.execute("ALTER TABLE users ADD COLUMN monthly_budget REAL DEFAULT 10000.0")
         except sqlite3.OperationalError:
-            pass  # Column already exists
+            pass
         conn.commit()
+
+init_db()
 
 def login_required(f):
     @wraps(f)
@@ -105,39 +107,39 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-# --- App Features ---
+# --- Dashboard & Insights ---
 
 @app.route("/")
 @login_required
 def index():
     user_id = session["user_id"]
-    selected_month = request.args.get("month", "")  # format: YYYY-MM
+    selected_month = request.args.get("month", "")
     selected_category = request.args.get("category", "")
+    now = datetime.now()
 
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # 1. Fetch user profile & budget
+        # 1. Budget & Profile
         user = cursor.execute("SELECT monthly_budget FROM users WHERE id = ?", (user_id,)).fetchone()
         budget = user["monthly_budget"] if user and user["monthly_budget"] else 10000.0
 
-        # 2. Build filtered query for expenses
+        # 2. Base Query Filters
         query = "SELECT * FROM expenses WHERE user_id = ?"
         params = [user_id]
-
         if selected_month:
             query += " AND strftime('%Y-%m', date) = ?"
             params.append(selected_month)
         if selected_category:
             query += " AND category = ?"
             params.append(selected_category)
-
         query += " ORDER BY date DESC, id DESC"
+
         cursor.execute(query, tuple(params))
         expenses = cursor.fetchall()
 
-        # 3. Sum total for current filter view
+        # 3. Aggregated Total
         total_query = "SELECT SUM(amount) FROM expenses WHERE user_id = ?"
         total_params = [user_id]
         if selected_month:
@@ -146,13 +148,12 @@ def index():
         if selected_category:
             total_query += " AND category = ?"
             total_params.append(selected_category)
-
         cursor.execute(total_query, tuple(total_params))
         total_row = cursor.fetchone()
         total = total_row[0] if total_row[0] else 0.0
 
-        # 4. Monthly spending specifically for budget bar (current month or filtered month)
-        current_m = selected_month if selected_month else datetime.now().strftime("%Y-%m")
+        # 4. Active Month Spending for Budget Bar
+        current_m = selected_month if selected_month else now.strftime("%Y-%m")
         cursor.execute(
             "SELECT SUM(amount) FROM expenses WHERE user_id = ? AND strftime('%Y-%m', date) = ?",
             (user_id, current_m)
@@ -160,7 +161,7 @@ def index():
         month_total_row = cursor.fetchone()
         monthly_spent = month_total_row[0] if month_total_row[0] else 0.0
 
-        # 5. Category breakdown for chart
+        # 5. Category Breakdown (Doughnut Chart)
         cat_query = """
             SELECT category, SUM(amount) as cat_total 
             FROM expenses 
@@ -173,7 +174,6 @@ def index():
         if selected_category:
             cat_query += " AND category = ?"
             cat_params.append(selected_category)
-
         cat_query += " GROUP BY category ORDER BY cat_total DESC"
         cursor.execute(cat_query, tuple(cat_params))
         cat_data = cursor.fetchall()
@@ -181,7 +181,46 @@ def index():
         categories = [row["category"] for row in cat_data]
         amounts = [row["cat_total"] for row in cat_data]
 
-        # 6. Distinct available months for filter dropdown
+        # Top category metric
+        top_category = categories[0] if categories else "None"
+        top_cat_amount = amounts[0] if amounts else 0.0
+        top_cat_pct = round((top_cat_amount / total * 100), 1) if total > 0 else 0.0
+
+        # 6. Timeline Trend (Line Chart: Daily spending chronological)
+        trend_query = """
+            SELECT date, SUM(amount) as daily_total
+            FROM expenses
+            WHERE user_id = ?
+        """
+        trend_params = [user_id]
+        if selected_month:
+            trend_query += " AND strftime('%Y-%m', date) = ?"
+            trend_params.append(selected_month)
+        if selected_category:
+            trend_query += " AND category = ?"
+            trend_params.append(selected_category)
+        trend_query += " GROUP BY date ORDER BY date ASC"
+        cursor.execute(trend_query, tuple(trend_params))
+        trend_data = cursor.fetchall()
+
+        trend_dates = [row["date"] for row in trend_data]
+        trend_amounts = [row["daily_total"] for row in trend_data]
+
+        # 7. Burn Rate & Month Projection
+        # Determine day count for active month
+        year_val, month_val = map(int, current_m.split("-"))
+        total_days_in_month = calendar.monthrange(year_val, month_val)[1]
+        
+        # If current month, divide by elapsed days; else divide by total month days
+        if current_m == now.strftime("%Y-%m"):
+            elapsed_days = max(now.day, 1)
+        else:
+            elapsed_days = total_days_in_month
+
+        daily_avg = monthly_spent / elapsed_days if elapsed_days > 0 else 0.0
+        projected_spend = daily_avg * total_days_in_month
+
+        # Available months for dropdown
         cursor.execute("""
             SELECT DISTINCT strftime('%Y-%m', date) as month_val 
             FROM expenses 
@@ -190,7 +229,6 @@ def index():
         """, (user_id,))
         available_months = [row["month_val"] for row in cursor.fetchall() if row["month_val"]]
 
-    # Budget calculations
     budget_pct = min(round((monthly_spent / budget) * 100, 1), 100.0) if budget > 0 else 0.0
 
     return render_template(
@@ -201,11 +239,17 @@ def index():
         monthly_spent=monthly_spent,
         budget=budget,
         budget_pct=budget_pct,
+        top_category=top_category,
+        top_cat_pct=top_cat_pct,
+        daily_avg=daily_avg,
+        projected_spend=projected_spend,
         selected_month=selected_month,
         selected_category=selected_category,
         available_months=available_months,
         categories_json=json.dumps(categories),
-        amounts_json=json.dumps(amounts)
+        amounts_json=json.dumps(amounts),
+        trend_dates_json=json.dumps(trend_dates),
+        trend_amounts_json=json.dumps(trend_amounts)
     )
 
 @app.route("/set-budget", methods=["POST"])
@@ -251,7 +295,7 @@ def add_expense():
         except ValueError:
             pass
 
-    return redirect(url_for("index"))
+    return redirect(request.referrer or url_for("index"))
 
 @app.route("/delete/<int:expense_id>", methods=["POST", "GET"])
 @login_required
@@ -261,8 +305,6 @@ def delete_expense(expense_id):
         conn.execute("DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user_id))
         conn.commit()
     return redirect(request.referrer or url_for("index"))
-
-init_db()
 
 if __name__ == "__main__":
     app.run(debug=True)
