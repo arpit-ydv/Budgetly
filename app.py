@@ -6,14 +6,17 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Handle PostgreSQL on Render, fallback to SQLite locally
+# Database configuration: PostgreSQL on Render, fallback to SQLite locally
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
-    # Render provides postgres://, SQLAlchemy/psycopg2 prefers postgresql://
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+    except ImportError:
+        import psycopg2_binary as psycopg2
+        from psycopg2.extras import RealDictCursor
 else:
     import sqlite3
 
@@ -23,67 +26,70 @@ DB_NAME = "expenses.db"
 
 def get_db():
     if DATABASE_URL:
-        conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-    else:
-        conn = sqlite3.connect(DB_NAME)
-        conn.row_factory = sqlite3.Row
+        return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    if DATABASE_URL:
-        # PostgreSQL syntax
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(100) UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                monthly_budget NUMERIC DEFAULT 10000.0
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS expenses (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                title VARCHAR(255) NOT NULL,
-                amount NUMERIC NOT NULL,
-                category VARCHAR(100) NOT NULL,
-                date DATE DEFAULT CURRENT_DATE
-            );
-        """)
-    else:
-        # SQLite syntax
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                monthly_budget REAL DEFAULT 10000.0
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS expenses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                amount REAL NOT NULL,
-                category TEXT NOT NULL,
-                date DATE DEFAULT CURRENT_DATE,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            );
-        """)
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN monthly_budget REAL DEFAULT 10000.0")
-        except sqlite3.OperationalError:
-            pass
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        if DATABASE_URL:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    monthly_budget NUMERIC DEFAULT 10000.0
+                );
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS expenses (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    title VARCHAR(255) NOT NULL,
+                    amount NUMERIC NOT NULL,
+                    category VARCHAR(100) NOT NULL,
+                    date DATE DEFAULT CURRENT_DATE
+                );
+            """)
+        else:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    monthly_budget REAL DEFAULT 10000.0
+                );
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS expenses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    category TEXT NOT NULL,
+                    date DATE DEFAULT CURRENT_DATE,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+            """)
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN monthly_budget REAL DEFAULT 10000.0")
+            except sqlite3.OperationalError:
+                pass
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"init_db non-fatal notice: {e}")
 
-init_db()
+# Safe startup call that won't crash Gunicorn if the database takes a moment to respond
+try:
+    init_db()
+except Exception as err:
+    print(f"Deferred init: {err}")
 
 def login_required(f):
     @wraps(f)
@@ -93,7 +99,6 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Helper for SQL parameter placeholders (? for SQLite, %s for PostgreSQL)
 def get_ph():
     return "%s" if DATABASE_URL else "?"
 
@@ -180,16 +185,19 @@ def index():
     conn = get_db()
     cursor = conn.cursor()
 
-    # 1. Budget & Profile
+    # 1. Monthly Budget
     cursor.execute(f"SELECT monthly_budget FROM users WHERE id = {ph}", (user_id,))
     user = cursor.fetchone()
-    budget = float(user["monthly_budget"]) if user and user["monthly_budget"] else 10000.0
+    budget = float(user["monthly_budget"]) if user and user.get("monthly_budget") else 10000.0
 
-    # Date format function depending on engine
     date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
 
     # 2. Filtered Transactions
-    query = f"SELECT id, title, amount, category, TO_CHAR(date, 'YYYY-MM-DD') as date FROM expenses WHERE user_id = {ph}" if DATABASE_URL else f"SELECT * FROM expenses WHERE user_id = {ph}"
+    query = (
+        f"SELECT id, title, amount, category, TO_CHAR(date, 'YYYY-MM-DD') as date FROM expenses WHERE user_id = {ph}"
+        if DATABASE_URL else
+        f"SELECT * FROM expenses WHERE user_id = {ph}"
+    )
     params = [user_id]
 
     if selected_month:
@@ -204,7 +212,7 @@ def index():
     expenses = cursor.fetchall()
 
     # 3. Aggregated Total
-    total_query = f"SELECT SUM(amount) FROM expenses WHERE user_id = {ph}"
+    total_query = f"SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE user_id = {ph}"
     total_params = [user_id]
     if selected_month:
         total_query += f" AND {date_fn} = {ph}"
@@ -215,16 +223,16 @@ def index():
 
     cursor.execute(total_query, tuple(total_params))
     total_row = cursor.fetchone()
-    total = float(total_row[0] if total_row and total_row[0] else (total_row["sum"] if total_row and "sum" in total_row and total_row["sum"] else 0.0))
+    total = float(total_row["total"] if DATABASE_URL else total_row[0]) if total_row else 0.0
 
-    # 4. Monthly Active Total for Budget
+    # 4. Current Month Active Total (for Budget Tracker)
     current_m = selected_month if selected_month else now.strftime("%Y-%m")
     cursor.execute(
-        f"SELECT SUM(amount) FROM expenses WHERE user_id = {ph} AND {date_fn} = {ph}",
+        f"SELECT COALESCE(SUM(amount), 0) as month_total FROM expenses WHERE user_id = {ph} AND {date_fn} = {ph}",
         (user_id, current_m)
     )
     month_total_row = cursor.fetchone()
-    monthly_spent = float(month_total_row[0] if month_total_row and month_total_row[0] else (month_total_row["sum"] if month_total_row and "sum" in month_total_row and month_total_row["sum"] else 0.0))
+    monthly_spent = float(month_total_row["month_total"] if DATABASE_URL else month_total_row[0]) if month_total_row else 0.0
 
     # 5. Category Breakdown (Doughnut Chart)
     cat_query = f"""
@@ -251,7 +259,7 @@ def index():
     top_cat_amount = amounts[0] if amounts else 0.0
     top_cat_pct = round((top_cat_amount / total * 100), 1) if total > 0 else 0.0
 
-    # 6. Spending Timeline Trend
+    # 6. Spending Timeline Trend (Line Chart)
     trend_col = "TO_CHAR(date, 'YYYY-MM-DD')" if DATABASE_URL else "date"
     trend_query = f"""
         SELECT {trend_col} as tx_date, SUM(amount) as daily_total
@@ -287,7 +295,8 @@ def index():
         WHERE user_id = {ph} 
         ORDER BY month_val DESC
     """, (user_id,))
-    available_months = [row["month_val"] for row in cursor.fetchall() if row["month_val"]]
+    months_rows = cursor.fetchall()
+    available_months = [row["month_val"] for row in months_rows if row.get("month_val") or (not DATABASE_URL and row[0])]
 
     cursor.close()
     conn.close()
@@ -368,157 +377,18 @@ def add_expense():
 
     return redirect(request.referrer or url_for("index"))
 
-@app.route("/")
+@app.route("/delete/<int:expense_id>", methods=["POST", "GET"])
 @login_required
-def index():
+def delete_expense(expense_id):
     user_id = session["user_id"]
-    selected_month = request.args.get("month", "")
-    selected_category = request.args.get("category", "")
-    now = datetime.now()
-    ph = get_ph()
-
     conn = get_db()
     cursor = conn.cursor()
-
-    # 1. Budget & Profile
-    cursor.execute(f"SELECT monthly_budget FROM users WHERE id = {ph}", (user_id,))
-    user = cursor.fetchone()
-    budget = float(user["monthly_budget"]) if user and user.get("monthly_budget") else 10000.0
-
-    # Engine-specific date formatter
-    date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
-
-    # 2. Filtered Transactions
-    query = (
-        f"SELECT id, title, amount, category, TO_CHAR(date, 'YYYY-MM-DD') as date FROM expenses WHERE user_id = {ph}" 
-        if DATABASE_URL else 
-        f"SELECT * FROM expenses WHERE user_id = {ph}"
-    )
-    params = [user_id]
-
-    if selected_month:
-        query += f" AND {date_fn} = {ph}"
-        params.append(selected_month)
-    if selected_category:
-        query += f" AND category = {ph}"
-        params.append(selected_category)
-    query += " ORDER BY date DESC, id DESC"
-
-    cursor.execute(query, tuple(params))
-    expenses = cursor.fetchall()
-
-    # 3. Aggregated Total
-    total_query = f"SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE user_id = {ph}"
-    total_params = [user_id]
-    if selected_month:
-        total_query += f" AND {date_fn} = {ph}"
-        total_params.append(selected_month)
-    if selected_category:
-        total_query += f" AND category = {ph}"
-        total_params.append(selected_category)
-
-    cursor.execute(total_query, tuple(total_params))
-    total_row = cursor.fetchone()
-    total = float(total_row["total"] if DATABASE_URL else total_row[0]) if total_row else 0.0
-
-    # 4. Monthly Active Total for Budget
-    current_m = selected_month if selected_month else now.strftime("%Y-%m")
-    cursor.execute(
-        f"SELECT COALESCE(SUM(amount), 0) as month_total FROM expenses WHERE user_id = {ph} AND {date_fn} = {ph}",
-        (user_id, current_m)
-    )
-    month_total_row = cursor.fetchone()
-    monthly_spent = float(month_total_row["month_total"] if DATABASE_URL else month_total_row[0]) if month_total_row else 0.0
-
-    # 5. Category Breakdown (Doughnut Chart)
-    cat_query = f"""
-        SELECT category, SUM(amount) as cat_total 
-        FROM expenses 
-        WHERE user_id = {ph}
-    """
-    cat_params = [user_id]
-    if selected_month:
-        cat_query += f" AND {date_fn} = {ph}"
-        cat_params.append(selected_month)
-    if selected_category:
-        cat_query += f" AND category = {ph}"
-        cat_params.append(selected_category)
-    cat_query += " GROUP BY category ORDER BY cat_total DESC"
-
-    cursor.execute(cat_query, tuple(cat_params))
-    cat_data = cursor.fetchall()
-
-    categories = [row["category"] for row in cat_data]
-    amounts = [float(row["cat_total"]) for row in cat_data]
-
-    top_category = categories[0] if categories else "None"
-    top_cat_amount = amounts[0] if amounts else 0.0
-    top_cat_pct = round((top_cat_amount / total * 100), 1) if total > 0 else 0.0
-
-    # 6. Spending Timeline Trend
-    trend_col = "TO_CHAR(date, 'YYYY-MM-DD')" if DATABASE_URL else "date"
-    trend_query = f"""
-        SELECT {trend_col} as tx_date, SUM(amount) as daily_total
-        FROM expenses
-        WHERE user_id = {ph}
-    """
-    trend_params = [user_id]
-    if selected_month:
-        trend_query += f" AND {date_fn} = {ph}"
-        trend_params.append(selected_month)
-    if selected_category:
-        trend_query += f" AND category = {ph}"
-        trend_params.append(selected_category)
-    trend_query += f" GROUP BY {trend_col} ORDER BY tx_date ASC"
-
-    cursor.execute(trend_query, tuple(trend_params))
-    trend_data = cursor.fetchall()
-
-    trend_dates = [str(row["tx_date"]) for row in trend_data]
-    trend_amounts = [float(row["daily_total"]) for row in trend_data]
-
-    # 7. Burn Projection
-    year_val, month_val = map(int, current_m.split("-"))
-    total_days_in_month = calendar.monthrange(year_val, month_val)[1]
-    elapsed_days = max(now.day, 1) if current_m == now.strftime("%Y-%m") else total_days_in_month
-    daily_avg = monthly_spent / elapsed_days if elapsed_days > 0 else 0.0
-    projected_spend = daily_avg * total_days_in_month
-
-    # 8. Available Months Dropdown
-    cursor.execute(f"""
-        SELECT DISTINCT {date_fn} as month_val 
-        FROM expenses 
-        WHERE user_id = {ph} 
-        ORDER BY month_val DESC
-    """, (user_id,))
-    months_rows = cursor.fetchall()
-    available_months = [row["month_val"] for row in months_rows if row.get("month_val") or (not DATABASE_URL and row[0])]
-
+    ph = get_ph()
+    cursor.execute(f"DELETE FROM expenses WHERE id = {ph} AND user_id = {ph}", (expense_id, user_id))
+    conn.commit()
     cursor.close()
     conn.close()
-
-    budget_pct = min(round((monthly_spent / budget) * 100, 1), 100.0) if budget > 0 else 0.0
-
-    return render_template(
-        "index.html",
-        username=session["username"],
-        expenses=expenses,
-        total=total,
-        monthly_spent=monthly_spent,
-        budget=budget,
-        budget_pct=budget_pct,
-        top_category=top_category,
-        top_cat_pct=top_cat_pct,
-        daily_avg=daily_avg,
-        projected_spend=projected_spend,
-        selected_month=selected_month,
-        selected_category=selected_category,
-        available_months=available_months,
-        categories_json=json.dumps(categories),
-        amounts_json=json.dumps(amounts),
-        trend_dates_json=json.dumps(trend_dates),
-        trend_amounts_json=json.dumps(trend_amounts)
-    )
+    return redirect(request.referrer or url_for("index"))
 
 if __name__ == "__main__":
     app.run(debug=True)
