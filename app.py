@@ -12,6 +12,13 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    
+    # Strip channel_binding if present (causes psycopg2 handshakes to fail)
+    if "channel_binding=" in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.replace("&channel_binding=require", "").replace("channel_binding=require", "")
+        if DATABASE_URL.endswith("?") or DATABASE_URL.endswith("&"):
+            DATABASE_URL = DATABASE_URL[:-1]
+
     try:
         import psycopg2
         from psycopg2.extras import RealDictCursor
