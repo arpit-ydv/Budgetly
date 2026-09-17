@@ -17,7 +17,7 @@
 </head>
 <body class="bg-[#0b0f19] text-slate-100 min-h-screen selection:bg-indigo-500 selection:text-white pb-16">
 
-  <!-- Glow effects -->
+  <!-- Glow background -->
   <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
     <div class="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl"></div>
     <div class="absolute top-1/3 -right-40 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl"></div>
@@ -36,9 +36,9 @@
           <p class="text-xs text-slate-400">Welcome, <span class="text-indigo-400 font-semibold">{{ username }}</span></p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3">
         <button onclick="document.getElementById('budgetModal').classList.remove('hidden')" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium px-3 py-1.5 rounded-lg border border-indigo-500/30 hover:bg-indigo-500/10 transition">
-          Set Budget Limit
+          Set Target
         </button>
         <a href="/logout" class="text-xs text-slate-400 hover:text-rose-400 font-medium px-3 py-1.5 rounded-lg border border-slate-800 hover:border-rose-500/30 transition">
           Logout
@@ -49,12 +49,12 @@
     <!-- Key Metrics Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl">
-        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">Top Expense Category</span>
+        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">Top Category</span>
         <div class="text-2xl font-black tracking-tight text-white flex items-center justify-between">
-          <span>{{ top_category }}</span>
-          <span class="text-xs text-indigo-400 font-medium px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">{{ top_cat_pct }}% of spend</span>
+          <span class="truncate">{{ top_category }}</span>
+          <span class="text-xs text-indigo-400 font-medium px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 whitespace-nowrap ml-2">{{ top_cat_pct }}%</span>
         </div>
-        <p class="text-xs text-slate-500 mt-2">Primary expenditure sector</p>
+        <p class="text-xs text-slate-500 mt-2">Largest expenditure sector</p>
       </div>
 
       <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl">
@@ -62,15 +62,15 @@
         <div class="text-2xl font-black tracking-tight text-indigo-400 font-mono">
           ₹{{ "%.2f"|format(daily_avg) }}
         </div>
-        <p class="text-xs text-slate-500 mt-2">Average spend per elapsed day</p>
+        <p class="text-xs text-slate-500 mt-2">Average spend per active day</p>
       </div>
 
       <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl">
-        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">End of Month Forecast</span>
+        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">Month Forecast</span>
         <div class="text-2xl font-black tracking-tight font-mono {% if projected_spend > budget %}text-rose-400{% else %}text-emerald-400{% endif %}">
           ₹{{ "%.2f"|format(projected_spend) }}
         </div>
-        <p class="text-xs text-slate-500 mt-2">Pace projection vs ₹{{ "%.0f"|format(budget) }} cap</p>
+        <p class="text-xs text-slate-500 mt-2">Projected vs ₹{{ "%.0f"|format(budget) }} target</p>
       </div>
     </div>
 
@@ -85,7 +85,7 @@
         </div>
         <div class="text-right">
           <span class="text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border {% if budget_pct >= 90 %}bg-rose-500/10 text-rose-400 border-rose-500/30{% elif budget_pct >= 75 %}bg-amber-500/10 text-amber-400 border-amber-500/30{% else %}bg-emerald-500/10 text-emerald-400 border-emerald-500/30{% endif %}">
-            {{ budget_pct }}% Used
+            {{ budget_pct }}% Spent
           </span>
         </div>
       </div>
@@ -99,58 +99,49 @@
 
     <!-- Interactive Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <!-- Line Chart: Daily Trend -->
       <div class="lg:col-span-7 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Spending Velocity & Timeline</h2>
-          <span class="text-xs text-slate-500">Day by Day</span>
+          <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Daily Spending Trend</h2>
+          <span class="text-xs text-slate-500">Chronological</span>
         </div>
         <div class="w-full h-56">
           <canvas id="trendChart"></canvas>
         </div>
-        <p class="text-xs text-slate-500 pt-3 border-t border-slate-800/80 mt-2">
-          Shows spikes in expenditure over chronological transaction dates
-        </p>
       </div>
 
-      <!-- Doughnut Chart: Categories -->
       <div class="lg:col-span-5 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Category Share</h2>
-          <span class="text-xs text-slate-500">Allocation</span>
+          <span class="text-xs text-slate-500">Breakdown</span>
         </div>
         <div class="w-full h-56 flex items-center justify-center">
           <canvas id="categoryChart"></canvas>
         </div>
-        <p class="text-xs text-slate-500 pt-3 border-t border-slate-800/80 mt-2 text-center">
-          Portfolio distribution by recorded tag
-        </p>
       </div>
     </div>
 
     <!-- Filters + Add Form -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      
-      <!-- Entry Form -->
+      <!-- Add Expense Form -->
       <div class="lg:col-span-7 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl">
         <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300 mb-4">Add Transaction</h2>
         <form action="/add" method="POST" class="space-y-4">
           <div>
             <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Description</label>
-            <input type="text" name="title" placeholder="e.g., Dinner, Fuel, Groceries" required 
-                   class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+            <input type="text" name="title" placeholder="e.g. Chai, Groceries, Movie" required 
+                   class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Amount (₹)</label>
               <input type="number" step="0.01" name="amount" placeholder="0.00" required 
-                     class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                     class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
             </div>
 
             <div>
               <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Category</label>
-              <select name="category" class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+              <select name="category" class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
                 <option value="Food">🍽️ Food & Dining</option>
                 <option value="Travel">🚗 Travel & Commute</option>
                 <option value="Bills">💡 Bills & Utilities</option>
@@ -165,7 +156,7 @@
 
           <div>
             <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Date</label>
-            <input type="date" name="date" id="datePicker" class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+            <input type="date" name="date" id="datePicker" class="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
           </div>
 
           <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-sm py-2.5 rounded-xl transition shadow-lg shadow-indigo-500/25 active:scale-[0.99]">
@@ -180,15 +171,14 @@
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Filter View</h2>
             {% if selected_month or selected_category %}
-              <a href="/" class="text-xs text-indigo-400 hover:underline">Reset Filters</a>
+              <a href="/" class="text-xs text-indigo-400 hover:underline">Reset</a>
             {% endif %}
           </div>
-          <p class="text-xs text-slate-400 mb-4">Isolate metrics and graphs by timeline or specific expenditure buckets.</p>
           <form method="GET" action="/" class="space-y-4">
             <div>
               <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Target Month</label>
               <select name="month" onchange="this.form.submit()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
-                <option value="">All Historical Records</option>
+                <option value="">All Time</option>
                 {% for m in available_months %}
                   <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
                 {% endfor %}
@@ -199,9 +189,9 @@
               <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Category</label>
               <select name="category" onchange="this.form.submit()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
                 <option value="">All Categories</option>
-                <option value="Food" {% if selected_category == 'Food' %}selected{% endif %}>Food</option>
-                <option value="Travel" {% if selected_category == 'Travel' %}selected{% endif %}>Travel</option>
-                <option value="Bills" {% if selected_category == 'Bills' %}selected{% endif %}>Bills</option>
+                <option value="Food" {% if selected_category == 'Food' %}selected{% endif %}>Food & Dining</option>
+                <option value="Travel" {% if selected_category == 'Travel' %}selected{% endif %}>Travel & Commute</option>
+                <option value="Bills" {% if selected_category == 'Bills' %}selected{% endif %}>Bills & Utilities</option>
                 <option value="Groceries" {% if selected_category == 'Groceries' %}selected{% endif %}>Groceries</option>
                 <option value="Shopping" {% if selected_category == 'Shopping' %}selected{% endif %}>Shopping</option>
                 <option value="Entertainment" {% if selected_category == 'Entertainment' %}selected{% endif %}>Entertainment</option>
@@ -216,48 +206,87 @@
           <span class="font-mono text-white font-bold">₹{{ "%.2f"|format(total) }}</span>
         </div>
       </div>
-
     </div>
 
-    <!-- History Table Card -->
+    <!-- History Table with Live Search and CSV Export -->
     <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden">
-      <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
-        <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Transaction Register</h2>
-        <span class="text-xs text-slate-400 font-mono">{{ expenses|length }} entries recorded</span>
+      <div class="p-4 sm:px-6 sm:py-4 border-b border-slate-800 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+        <div>
+          <h2 class="text-sm font-semibold tracking-wide uppercase text-slate-300">Transaction Register</h2>
+          <span class="text-xs text-slate-400 font-mono" id="txCount">{{ expenses|length }} entries</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Live Search Input -->
+          <div class="relative">
+            <input type="text" id="tableSearch" placeholder="Search transactions..." onkeyup="filterTable()"
+                   class="bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-44 sm:w-56">
+          </div>
+
+          <!-- CSV Export Button -->
+          <a href="/export-csv?month={{ selected_month }}&category={{ selected_category }}"
+             class="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700 text-xs font-medium px-3 py-1.5 rounded-xl transition">
+            <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+            </svg>
+            Export CSV
+          </a>
+        </div>
       </div>
 
       <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table class="w-full text-left border-collapse" id="expensesTable">
           <thead>
             <tr class="bg-slate-800/40 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
               <th class="py-3 px-6">Date</th>
               <th class="py-3 px-6">Description</th>
               <th class="py-3 px-6">Category</th>
               <th class="py-3 px-6 text-right">Amount</th>
-              <th class="py-3 px-6 text-center">Action</th>
+              <th class="py-3 px-6 text-center">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-800/60 text-sm">
             {% for item in expenses %}
-            <tr class="hover:bg-slate-800/30 transition">
+            <tr class="hover:bg-slate-800/30 transition table-row-item" data-title="{{ item.title|lower }}" data-cat="{{ item.category|lower }}">
               <td class="py-3 px-6 text-slate-400 text-xs font-mono">{{ item.date }}</td>
               <td class="py-3 px-6 font-medium text-slate-200">{{ item.title }}</td>
               <td class="py-3 px-6">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-indigo-300 border border-slate-700/50">
-                  {{ item.category }}
-                </span>
+                <!-- Dynamic Category Badges -->
+                {% if item.category == 'Food' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20">🍽️ Food</span>
+                {% elif item.category == 'Travel' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">🚗 Travel</span>
+                {% elif item.category == 'Bills' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">💡 Bills</span>
+                {% elif item.category == 'Groceries' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🛒 Groceries</span>
+                {% elif item.category == 'Shopping' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-500/10 text-pink-400 border border-pink-500/20">🛍️ Shopping</span>
+                {% elif item.category == 'Entertainment' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">🎬 Entertainment</span>
+                {% elif item.category == 'Cigarette & Alcohol' %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">🚬 Cig & Alcohol</span>
+                {% else %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">✨ Other</span>
+                {% endif %}
               </td>
               <td class="py-3 px-6 text-right font-semibold text-slate-100 font-mono">₹{{ "%.2f"|format(item.amount) }}</td>
-              <td class="py-3 px-6 text-center">
-                <a href="/delete/{{ item.id }}" class="text-rose-400 hover:text-rose-300 text-xs font-medium transition hover:underline">
+              <td class="py-3 px-6 text-center space-x-2">
+                <!-- Edit Action Trigger -->
+                <button type="button" 
+                        onclick="openEditModal('{{ item.id }}', '{{ item.title|replace('\'', '\\\'') }}', '{{ item.amount }}', '{{ item.category }}', '{{ item.date }}')"
+                        class="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition hover:underline">
+                  Edit
+                </button>
+                <a href="/delete/{{ item.id }}" class="text-rose-400 hover:text-rose-300 text-xs font-medium transition hover:underline" onclick="return confirm('Delete this record?')">
                   Delete
                 </a>
               </td>
             </tr>
             {% else %}
-            <tr>
+            <tr id="emptyRow">
               <td colspan="5" class="py-10 text-center text-slate-500 text-sm">
-                No matching transactions recorded.
+                No matching transactions found.
               </td>
             </tr>
             {% endfor %}
@@ -293,7 +322,62 @@
     </div>
   </div>
 
-  <!-- Scripts: Charts & Dynamic Inputs -->
+  <!-- Edit Expense Modal -->
+  <div id="editModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Edit Transaction</h3>
+        <button onclick="document.getElementById('editModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg leading-none">&times;</button>
+      </div>
+
+      <form id="editForm" method="POST" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Description</label>
+          <input type="text" id="editTitle" name="title" required
+                 class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Amount (₹)</label>
+            <input type="number" step="0.01" id="editAmount" name="amount" required
+                   class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Category</label>
+            <select id="editCategory" name="category" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+              <option value="Food">🍽️ Food & Dining</option>
+              <option value="Travel">🚗 Travel & Commute</option>
+              <option value="Bills">💡 Bills & Utilities</option>
+              <option value="Groceries">🛒 Groceries</option>
+              <option value="Shopping">🛍️ Shopping</option>
+              <option value="Entertainment">🎬 Entertainment</option>
+              <option value="Cigarette & Alcohol">🚬 Cigarette & Alcohol</option>
+              <option value="Other">✨ Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Date</label>
+          <input type="date" id="editDate" name="date" required
+                 class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')"
+                  class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-800 transition">
+            Cancel
+          </button>
+          <button type="submit" class="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-xl text-xs font-medium transition shadow-lg shadow-indigo-500/20">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Chart & Script Logic -->
   <script>
     document.getElementById('datePicker').valueAsDate = new Date();
 
@@ -302,7 +386,7 @@
     const trendDates = {{ trend_dates_json|safe }};
     const trendAmounts = {{ trend_amounts_json|safe }};
 
-    // 1. Category Doughnut Chart
+    // Category Doughnut Chart
     const catCtx = document.getElementById('categoryChart').getContext('2d');
     if (categories.length > 0) {
       new Chart(catCtx, {
@@ -311,7 +395,7 @@
           labels: categories,
           datasets: [{
             data: amounts,
-            backgroundColor: ['#6366f1', '#a855f7', '#ec4899', '#14b8a6', '#f59e0b', '#3b82f6'],
+            backgroundColor: ['#6366f1', '#a855f7', '#ec4899', '#14b8a6', '#f59e0b', '#3b82f6', '#f43f5e', '#64748b'],
             borderWidth: 0,
             hoverOffset: 6
           }]
@@ -322,7 +406,7 @@
           plugins: {
             legend: {
               position: 'bottom',
-              labels: { color: '#94a3b8', boxWidth: 8, padding: 12, font: { size: 10 } }
+              labels: { color: '#94a3b8', boxWidth: 8, padding: 10, font: { size: 10 } }
             }
           },
           cutout: '70%'
@@ -330,7 +414,7 @@
       });
     }
 
-    // 2. Spending Trend Line Chart
+    // Daily Trend Line Chart
     const trendCtx = document.getElementById('trendChart').getContext('2d');
     if (trendDates.length > 0) {
       new Chart(trendCtx, {
@@ -353,9 +437,7 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false }
-          },
+          plugins: { legend: { display: false } },
           scales: {
             x: {
               grid: { color: 'rgba(51, 65, 85, 0.3)' },
@@ -368,6 +450,37 @@
           }
         }
       });
+    }
+
+    // Client-side Instant Filter Search
+    function filterTable() {
+      const q = document.getElementById('tableSearch').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('.table-row-item');
+      let visibleCount = 0;
+
+      rows.forEach(row => {
+        const title = row.getAttribute('data-title') || '';
+        const cat = row.getAttribute('data-cat') || '';
+        if (title.includes(q) || cat.includes(q)) {
+          row.style.display = '';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      const countEl = document.getElementById('txCount');
+      if (countEl) countEl.innerText = `${visibleCount} visible`;
+    }
+
+    // Modal Trigger for Editing Expenses
+    function openEditModal(id, title, amount, category, date) {
+      document.getElementById('editForm').action = `/edit/${id}`;
+      document.getElementById('editTitle').value = title;
+      document.getElementById('editAmount').value = amount;
+      document.getElementById('editCategory').value = category;
+      document.getElementById('editDate').value = date;
+      document.getElementById('editModal').classList.remove('hidden');
     }
   </script>
 </body>

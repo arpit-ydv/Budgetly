@@ -1,12 +1,13 @@
 import os
+import io
+import csv
 import json
 import calendar
 from datetime import datetime
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Database configuration: PostgreSQL on Render, fallback to SQLite locally
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
@@ -83,9 +84,8 @@ def init_db():
         cursor.close()
         conn.close()
     except Exception as e:
-        print(f"init_db non-fatal notice: {e}")
+        print(f"init_db notice: {e}")
 
-# Safe startup call that won't crash Gunicorn if the database takes a moment to respond
 try:
     init_db()
 except Exception as err:
@@ -185,14 +185,12 @@ def index():
     conn = get_db()
     cursor = conn.cursor()
 
-    # 1. Monthly Budget
     cursor.execute(f"SELECT monthly_budget FROM users WHERE id = {ph}", (user_id,))
     user = cursor.fetchone()
     budget = float(user["monthly_budget"]) if user and user.get("monthly_budget") else 10000.0
 
     date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
 
-    # 2. Filtered Transactions
     query = (
         f"SELECT id, title, amount, category, TO_CHAR(date, 'YYYY-MM-DD') as date FROM expenses WHERE user_id = {ph}"
         if DATABASE_URL else
@@ -211,7 +209,6 @@ def index():
     cursor.execute(query, tuple(params))
     expenses = cursor.fetchall()
 
-    # 3. Aggregated Total
     total_query = f"SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE user_id = {ph}"
     total_params = [user_id]
     if selected_month:
@@ -225,7 +222,6 @@ def index():
     total_row = cursor.fetchone()
     total = float(total_row["total"] if DATABASE_URL else total_row[0]) if total_row else 0.0
 
-    # 4. Current Month Active Total (for Budget Tracker)
     current_m = selected_month if selected_month else now.strftime("%Y-%m")
     cursor.execute(
         f"SELECT COALESCE(SUM(amount), 0) as month_total FROM expenses WHERE user_id = {ph} AND {date_fn} = {ph}",
@@ -234,7 +230,6 @@ def index():
     month_total_row = cursor.fetchone()
     monthly_spent = float(month_total_row["month_total"] if DATABASE_URL else month_total_row[0]) if month_total_row else 0.0
 
-    # 5. Category Breakdown (Doughnut Chart)
     cat_query = f"""
         SELECT category, SUM(amount) as cat_total 
         FROM expenses 
@@ -259,7 +254,6 @@ def index():
     top_cat_amount = amounts[0] if amounts else 0.0
     top_cat_pct = round((top_cat_amount / total * 100), 1) if total > 0 else 0.0
 
-    # 6. Spending Timeline Trend (Line Chart)
     trend_col = "TO_CHAR(date, 'YYYY-MM-DD')" if DATABASE_URL else "date"
     trend_query = f"""
         SELECT {trend_col} as tx_date, SUM(amount) as daily_total
@@ -281,14 +275,12 @@ def index():
     trend_dates = [str(row["tx_date"]) for row in trend_data]
     trend_amounts = [float(row["daily_total"]) for row in trend_data]
 
-    # 7. Burn Projection
     year_val, month_val = map(int, current_m.split("-"))
     total_days_in_month = calendar.monthrange(year_val, month_val)[1]
     elapsed_days = max(now.day, 1) if current_m == now.strftime("%Y-%m") else total_days_in_month
     daily_avg = monthly_spent / elapsed_days if elapsed_days > 0 else 0.0
     projected_spend = daily_avg * total_days_in_month
 
-    # 8. Available Months Dropdown
     cursor.execute(f"""
         SELECT DISTINCT {date_fn} as month_val 
         FROM expenses 
@@ -377,6 +369,34 @@ def add_expense():
 
     return redirect(request.referrer or url_for("index"))
 
+@app.route("/edit/<int:expense_id>", methods=["POST"])
+@login_required
+def edit_expense(expense_id):
+    user_id = session["user_id"]
+    title = request.form.get("title", "").strip()
+    amount = request.form.get("amount")
+    category = request.form.get("category", "Other")
+    date = request.form.get("date")
+    ph = get_ph()
+
+    if title and amount:
+        try:
+            valid_amount = float(amount)
+            if valid_amount > 0:
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"UPDATE expenses SET title = {ph}, amount = {ph}, category = {ph}, date = {ph} WHERE id = {ph} AND user_id = {ph}",
+                    (title, valid_amount, category, date, expense_id, user_id)
+                )
+                conn.commit()
+                cursor.close()
+                conn.close()
+        except ValueError:
+            pass
+
+    return redirect(request.referrer or url_for("index"))
+
 @app.route("/delete/<int:expense_id>", methods=["POST", "GET"])
 @login_required
 def delete_expense(expense_id):
@@ -389,6 +409,52 @@ def delete_expense(expense_id):
     cursor.close()
     conn.close()
     return redirect(request.referrer or url_for("index"))
+
+@app.route("/export-csv")
+@login_required
+def export_csv():
+    user_id = session["user_id"]
+    selected_month = request.args.get("month", "")
+    selected_category = request.args.get("category", "")
+    ph = get_ph()
+
+    conn = get_db()
+    cursor = conn.cursor()
+    date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
+    
+    query = (
+        f"SELECT id, title, amount, category, TO_CHAR(date, 'YYYY-MM-DD') as date FROM expenses WHERE user_id = {ph}"
+        if DATABASE_URL else
+        f"SELECT * FROM expenses WHERE user_id = {ph}"
+    )
+    params = [user_id]
+    if selected_month:
+        query += f" AND {date_fn} = {ph}"
+        params.append(selected_month)
+    if selected_category:
+        query += f" AND category = {ph}"
+        params.append(selected_category)
+    query += " ORDER BY date DESC, id DESC"
+
+    cursor.execute(query, tuple(params))
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Date", "Description", "Category", "Amount (INR)"])
+
+    for row in rows:
+        writer.writerow([row["id"], row["date"], row["title"], row["category"], f"{float(row['amount']):.2f}"])
+
+    output.seek(0)
+    filename = f"budgetly_expenses_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment;filename={filename}"}
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
