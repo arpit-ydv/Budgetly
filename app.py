@@ -368,18 +368,157 @@ def add_expense():
 
     return redirect(request.referrer or url_for("index"))
 
-@app.route("/delete/<int:expense_id>", methods=["POST", "GET"])
+@app.route("/")
 @login_required
-def delete_expense(expense_id):
+def index():
     user_id = session["user_id"]
+    selected_month = request.args.get("month", "")
+    selected_category = request.args.get("category", "")
+    now = datetime.now()
+    ph = get_ph()
+
     conn = get_db()
     cursor = conn.cursor()
-    ph = get_ph()
-    cursor.execute(f"DELETE FROM expenses WHERE id = {ph} AND user_id = {ph}", (expense_id, user_id))
-    conn.commit()
+
+    # 1. Budget & Profile
+    cursor.execute(f"SELECT monthly_budget FROM users WHERE id = {ph}", (user_id,))
+    user = cursor.fetchone()
+    budget = float(user["monthly_budget"]) if user and user.get("monthly_budget") else 10000.0
+
+    # Engine-specific date formatter
+    date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
+
+    # 2. Filtered Transactions
+    query = (
+        f"SELECT id, title, amount, category, TO_CHAR(date, 'YYYY-MM-DD') as date FROM expenses WHERE user_id = {ph}" 
+        if DATABASE_URL else 
+        f"SELECT * FROM expenses WHERE user_id = {ph}"
+    )
+    params = [user_id]
+
+    if selected_month:
+        query += f" AND {date_fn} = {ph}"
+        params.append(selected_month)
+    if selected_category:
+        query += f" AND category = {ph}"
+        params.append(selected_category)
+    query += " ORDER BY date DESC, id DESC"
+
+    cursor.execute(query, tuple(params))
+    expenses = cursor.fetchall()
+
+    # 3. Aggregated Total
+    total_query = f"SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE user_id = {ph}"
+    total_params = [user_id]
+    if selected_month:
+        total_query += f" AND {date_fn} = {ph}"
+        total_params.append(selected_month)
+    if selected_category:
+        total_query += f" AND category = {ph}"
+        total_params.append(selected_category)
+
+    cursor.execute(total_query, tuple(total_params))
+    total_row = cursor.fetchone()
+    total = float(total_row["total"] if DATABASE_URL else total_row[0]) if total_row else 0.0
+
+    # 4. Monthly Active Total for Budget
+    current_m = selected_month if selected_month else now.strftime("%Y-%m")
+    cursor.execute(
+        f"SELECT COALESCE(SUM(amount), 0) as month_total FROM expenses WHERE user_id = {ph} AND {date_fn} = {ph}",
+        (user_id, current_m)
+    )
+    month_total_row = cursor.fetchone()
+    monthly_spent = float(month_total_row["month_total"] if DATABASE_URL else month_total_row[0]) if month_total_row else 0.0
+
+    # 5. Category Breakdown (Doughnut Chart)
+    cat_query = f"""
+        SELECT category, SUM(amount) as cat_total 
+        FROM expenses 
+        WHERE user_id = {ph}
+    """
+    cat_params = [user_id]
+    if selected_month:
+        cat_query += f" AND {date_fn} = {ph}"
+        cat_params.append(selected_month)
+    if selected_category:
+        cat_query += f" AND category = {ph}"
+        cat_params.append(selected_category)
+    cat_query += " GROUP BY category ORDER BY cat_total DESC"
+
+    cursor.execute(cat_query, tuple(cat_params))
+    cat_data = cursor.fetchall()
+
+    categories = [row["category"] for row in cat_data]
+    amounts = [float(row["cat_total"]) for row in cat_data]
+
+    top_category = categories[0] if categories else "None"
+    top_cat_amount = amounts[0] if amounts else 0.0
+    top_cat_pct = round((top_cat_amount / total * 100), 1) if total > 0 else 0.0
+
+    # 6. Spending Timeline Trend
+    trend_col = "TO_CHAR(date, 'YYYY-MM-DD')" if DATABASE_URL else "date"
+    trend_query = f"""
+        SELECT {trend_col} as tx_date, SUM(amount) as daily_total
+        FROM expenses
+        WHERE user_id = {ph}
+    """
+    trend_params = [user_id]
+    if selected_month:
+        trend_query += f" AND {date_fn} = {ph}"
+        trend_params.append(selected_month)
+    if selected_category:
+        trend_query += f" AND category = {ph}"
+        trend_params.append(selected_category)
+    trend_query += f" GROUP BY {trend_col} ORDER BY tx_date ASC"
+
+    cursor.execute(trend_query, tuple(trend_params))
+    trend_data = cursor.fetchall()
+
+    trend_dates = [str(row["tx_date"]) for row in trend_data]
+    trend_amounts = [float(row["daily_total"]) for row in trend_data]
+
+    # 7. Burn Projection
+    year_val, month_val = map(int, current_m.split("-"))
+    total_days_in_month = calendar.monthrange(year_val, month_val)[1]
+    elapsed_days = max(now.day, 1) if current_m == now.strftime("%Y-%m") else total_days_in_month
+    daily_avg = monthly_spent / elapsed_days if elapsed_days > 0 else 0.0
+    projected_spend = daily_avg * total_days_in_month
+
+    # 8. Available Months Dropdown
+    cursor.execute(f"""
+        SELECT DISTINCT {date_fn} as month_val 
+        FROM expenses 
+        WHERE user_id = {ph} 
+        ORDER BY month_val DESC
+    """, (user_id,))
+    months_rows = cursor.fetchall()
+    available_months = [row["month_val"] for row in months_rows if row.get("month_val") or (not DATABASE_URL and row[0])]
+
     cursor.close()
     conn.close()
-    return redirect(request.referrer or url_for("index"))
+
+    budget_pct = min(round((monthly_spent / budget) * 100, 1), 100.0) if budget > 0 else 0.0
+
+    return render_template(
+        "index.html",
+        username=session["username"],
+        expenses=expenses,
+        total=total,
+        monthly_spent=monthly_spent,
+        budget=budget,
+        budget_pct=budget_pct,
+        top_category=top_category,
+        top_cat_pct=top_cat_pct,
+        daily_avg=daily_avg,
+        projected_spend=projected_spend,
+        selected_month=selected_month,
+        selected_category=selected_category,
+        available_months=available_months,
+        categories_json=json.dumps(categories),
+        amounts_json=json.dumps(amounts),
+        trend_dates_json=json.dumps(trend_dates),
+        trend_amounts_json=json.dumps(trend_amounts)
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
