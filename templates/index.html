@@ -3,115 +3,156 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Budgetly — Obsidian Finance</title>
+  <title>Budgetly — Liquid Glass</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { 
-      font-family: 'Plus Jakarta Sans', sans-serif; 
-      background-color: #090a0f;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; 
+      background-color: #07090e;
     }
     .font-mono {
       font-family: 'JetBrains Mono', monospace;
     }
-    .glass-card {
-      background: rgba(18, 20, 29, 0.72);
+
+    /* Apple Liquid Glass Layer */
+    .liquid-glass {
+      background: radial-gradient(130% 130% at 0% 0%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%),
+                  rgba(15, 18, 28, 0.65);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.22),
+                  inset 0 -1px 1px rgba(0, 0, 0, 0.4);
+    }
+
+    .liquid-glass:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.3);
+    }
+
+    /* Liquid Input / Dropdown */
+    .liquid-input {
+      background: rgba(10, 13, 22, 0.7);
       backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.05);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .glass-input {
-      background: rgba(12, 14, 22, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    .liquid-input:focus {
+      outline: none;
+      border-color: rgba(56, 189, 248, 0.55);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.1);
+      background: rgba(12, 16, 26, 0.85);
     }
-    .glass-input:focus {
-      border-color: rgba(6, 182, 212, 0.6);
-      box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+
+    /* Apple-style Pill Buttons */
+    .liquid-button {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.9) 0%, rgba(14, 165, 233, 0.85) 100%);
+      box-shadow: 0 10px 25px -3px rgba(56, 189, 248, 0.35),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.4);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
+    .liquid-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px -3px rgba(56, 189, 248, 0.5),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.6);
+      filter: brightness(1.08);
+    }
+    .liquid-button:active {
+      transform: translateY(0.5px);
+      filter: brightness(0.96);
+    }
+
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #090a0f; }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
   </style>
 </head>
-<body class="text-slate-200 min-h-screen selection:bg-cyan-500 selection:text-black pb-16">
+<body class="text-slate-100 min-h-screen selection:bg-sky-400 selection:text-slate-950 pb-16">
 
-  <!-- Ambient Glow -->
+  <!-- Apple Liquid Specular Lighting Orbs -->
   <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
-    <div class="absolute -top-32 -left-32 w-[30rem] h-[30rem] bg-violet-600/15 rounded-full blur-[130px]"></div>
-    <div class="absolute top-1/4 -right-32 w-[28rem] h-[28rem] bg-cyan-500/12 rounded-full blur-[130px]"></div>
+    <div class="absolute -top-32 -left-32 w-[34rem] h-[34rem] bg-indigo-500/20 rounded-full blur-[140px]"></div>
+    <div class="absolute top-1/4 -right-32 w-[32rem] h-[32rem] bg-sky-400/18 rounded-full blur-[140px]"></div>
+    <div class="absolute bottom-10 left-1/3 w-[30rem] h-[30rem] bg-violet-600/14 rounded-full blur-[150px]"></div>
   </div>
 
   <div class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-10 space-y-6">
     
-    <!-- Header (No B logo, clean personalized text) -->
+    <!-- Header -->
     <header class="flex items-center justify-between border-b border-white/[0.08] pb-6">
       <div>
         <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
           Budgetly
-          <span class="text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20">Obsidian</span>
+          <span class="text-[10px] uppercase font-mono tracking-widest px-2.5 py-0.5 rounded-full bg-white/[0.06] text-sky-300 border border-white/[0.12] backdrop-blur-md">Liquid Glass</span>
         </h1>
-        <p class="text-xs text-slate-400">Welcome, <span class="text-cyan-400 font-medium">Arpit</span></p>
+        <p class="text-xs text-slate-400">Welcome, <span class="text-sky-300 font-semibold">Arpit</span></p>
       </div>
       <div class="flex items-center gap-2 sm:gap-3">
-        <button onclick="document.getElementById('budgetModal').classList.remove('hidden')" class="text-xs text-cyan-300 hover:text-white font-medium px-3.5 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/15 transition shadow-sm">
+        <button onclick="document.getElementById('budgetModal').classList.remove('hidden')" class="text-xs text-sky-200 hover:text-white font-medium px-4 py-1.5 rounded-full border border-sky-400/30 bg-sky-500/10 hover:bg-sky-500/20 transition shadow-sm backdrop-blur-md">
           Set Target
         </button>
-        <a href="/logout" class="text-xs text-slate-400 hover:text-rose-400 font-medium px-3.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-rose-500/10 hover:border-rose-500/30 transition">
+        <a href="/logout" class="text-xs text-slate-300 hover:text-rose-400 font-medium px-4 py-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] hover:bg-rose-500/15 hover:border-rose-500/30 transition backdrop-blur-md">
           Logout
         </a>
       </div>
     </header>
 
-    <!-- Key Metrics Cards -->
+    <!-- Key Metrics Cards (Triple Liquid Pods) -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div class="glass-card rounded-2xl p-5 shadow-2xl">
-        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">Top Sector</span>
+      <div class="liquid-glass rounded-3xl p-5 transition duration-300">
+        <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400 block mb-1">Top Sector</span>
         <div class="text-2xl font-bold tracking-tight text-white flex items-center justify-between">
           <span class="truncate">{{ top_category }}</span>
-          <span class="text-xs font-mono text-cyan-300 px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/25 whitespace-nowrap ml-2">{{ top_cat_pct }}%</span>
+          <span class="text-xs font-mono text-sky-300 px-2.5 py-0.5 rounded-full bg-sky-400/10 border border-sky-400/30 whitespace-nowrap ml-2 backdrop-blur-md">{{ top_cat_pct }}%</span>
         </div>
-        <p class="text-xs text-slate-500 mt-2">Dominant expenditure bucket</p>
+        <p class="text-[11px] text-slate-500 mt-2">Dominant expenditure bucket</p>
       </div>
 
-      <div class="glass-card rounded-2xl p-5 shadow-2xl">
-        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">Daily Burn Rate</span>
-        <div class="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-cyan-300 font-mono">
+      <div class="liquid-glass rounded-3xl p-5 transition duration-300">
+        <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400 block mb-1">Daily Burn Rate</span>
+        <div class="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-300 via-indigo-200 to-white font-mono">
           ₹{{ "%.2f"|format(daily_avg) }}
         </div>
-        <p class="text-xs text-slate-500 mt-2">Active daily average outlay</p>
+        <p class="text-[11px] text-slate-500 mt-2">Active daily average outlay</p>
       </div>
 
-      <div class="glass-card rounded-2xl p-5 shadow-2xl">
-        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">Month Forecast</span>
-        <div class="text-2xl font-bold tracking-tight font-mono {% if projected_spend > budget %}text-rose-400{% else %}text-emerald-400{% endif %}">
+      <div class="liquid-glass rounded-3xl p-5 transition duration-300">
+        <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400 block mb-1">Month Forecast</span>
+        <div class="text-2xl font-bold tracking-tight font-mono {% if projected_spend > budget %}text-rose-400{% else %}text-emerald-300{% endif %}">
           ₹{{ "%.2f"|format(projected_spend) }}
         </div>
-        <p class="text-xs text-slate-500 mt-2">Projected vs ₹{{ "%.0f"|format(budget) }} ceiling</p>
+        <p class="text-[11px] text-slate-500 mt-2">Projected vs ₹{{ "%.0f"|format(budget) }} ceiling</p>
       </div>
     </div>
 
-    <!-- Monthly Budget Bar -->
-    <div class="glass-card rounded-2xl p-5 shadow-2xl space-y-3">
+    <!-- Monthly Budget Liquid Capsule -->
+    <div class="liquid-glass rounded-3xl p-5 space-y-3">
       <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
         <div>
-          <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block">Monthly Target Trajectory</span>
+          <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400 block">Monthly Target Trajectory</span>
           <div class="text-2xl font-bold text-white mt-0.5 font-mono">
             ₹{{ "%.2f"|format(monthly_spent) }} <span class="text-sm font-normal text-slate-500">/ ₹{{ "%.2f"|format(budget) }}</span>
           </div>
         </div>
         <div class="text-right">
-          <span class="text-xs font-mono font-bold uppercase tracking-wider px-3 py-1 rounded-full border {% if budget_pct >= 90 %}bg-rose-500/10 text-rose-400 border-rose-500/30{% elif budget_pct >= 75 %}bg-amber-500/10 text-amber-300 border-amber-500/30{% else %}bg-cyan-500/10 text-cyan-300 border-cyan-500/30{% endif %}">
+          <span class="text-xs font-mono font-semibold uppercase tracking-wider px-3 py-1 rounded-full border {% if budget_pct >= 90 %}bg-rose-500/15 text-rose-300 border-rose-500/30{% elif budget_pct >= 75 %}bg-amber-500/15 text-amber-200 border-amber-500/30{% else %}bg-sky-400/15 text-sky-200 border-sky-400/30{% endif %} backdrop-blur-md">
             {{ budget_pct }}% Cap
           </span>
         </div>
       </div>
-      <div class="w-full bg-[#0d0f17] h-2.5 rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
+      <div class="w-full bg-[#0b0e18]/80 h-3 rounded-full overflow-hidden p-0.5 border border-white/[0.08] shadow-inner">
         <div 
-          class="h-full rounded-full transition-all duration-700 {% if budget_pct >= 90 %}bg-gradient-to-r from-rose-500 to-rose-600{% elif budget_pct >= 75 %}bg-gradient-to-r from-amber-400 to-amber-500{% else %}bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400{% endif %}" 
+          class="h-full rounded-full transition-all duration-700 shadow-md {% if budget_pct >= 90 %}bg-gradient-to-r from-rose-500 to-rose-600 shadow-rose-500/30{% elif budget_pct >= 75 %}bg-gradient-to-r from-amber-400 to-amber-500 shadow-amber-500/30{% else %}bg-gradient-to-r from-indigo-500 via-sky-400 to-teal-300 shadow-sky-400/40{% endif %}" 
           style="width: {{ budget_pct }}%"
         ></div>
       </div>
@@ -119,20 +160,20 @@
 
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div class="lg:col-span-7 glass-card rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
+      <div class="lg:col-span-7 liquid-glass rounded-3xl p-6 flex flex-col justify-between">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xs font-bold tracking-widest uppercase text-slate-300">Daily Velocity</h2>
-          <span class="text-xs text-slate-500 font-mono">Timeline</span>
+          <span class="text-[11px] text-slate-500 font-mono">Timeline</span>
         </div>
         <div class="w-full h-56">
           <canvas id="trendChart"></canvas>
         </div>
       </div>
 
-      <div class="lg:col-span-5 glass-card rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
+      <div class="lg:col-span-5 liquid-glass rounded-3xl p-6 flex flex-col justify-between">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xs font-bold tracking-widest uppercase text-slate-300">Portfolio Distribution</h2>
-          <span class="text-xs text-slate-500 font-mono">Breakdown</span>
+          <h2 class="text-xs font-bold tracking-widest uppercase text-slate-300">Distribution</h2>
+          <span class="text-[11px] text-slate-500 font-mono">Portfolio</span>
         </div>
         <div class="w-full h-56 flex items-center justify-center">
           <canvas id="categoryChart"></canvas>
@@ -140,113 +181,113 @@
       </div>
     </div>
 
-    <!-- Inputs & Filter Row -->
+    <!-- Form + Perspective Filter Row -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <!-- Add Expense Form -->
-      <div class="lg:col-span-7 glass-card rounded-2xl p-6 shadow-2xl">
+      <!-- Record Transaction -->
+      <div class="lg:col-span-7 liquid-glass rounded-3xl p-6">
         <h2 class="text-xs font-bold tracking-widest uppercase text-slate-300 mb-4">Record Transaction</h2>
         <form action="/add" method="POST" class="space-y-4">
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Description</label>
-            <input type="text" name="title" placeholder="e.g. Groceries, Dinner, Metro" required 
-                   class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition">
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Description</label>
+            <input type="text" name="title" placeholder="e.g. Flight tickets, Dinner, Groceries" required 
+                   class="w-full liquid-input rounded-2xl px-4 py-2.5 text-sm text-white placeholder-slate-500">
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Amount (₹)</label>
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Amount (₹)</label>
               <input type="number" step="0.01" name="amount" placeholder="0.00" required 
-                     class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white font-mono placeholder-slate-500 focus:outline-none transition">
+                     class="w-full liquid-input rounded-2xl px-4 py-2.5 text-sm text-white font-mono placeholder-slate-500">
             </div>
 
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Category</label>
-              <select name="category" class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none transition">
-                <option value="Food" class="bg-[#0e1017]">🍽️ Food & Dining</option>
-                <option value="Travel" class="bg-[#0e1017]">🚗 Travel & Commute</option>
-                <option value="Bills" class="bg-[#0e1017]">💡 Bills & Utilities</option>
-                <option value="Groceries" class="bg-[#0e1017]">🛒 Groceries</option>
-                <option value="Shopping" class="bg-[#0e1017]">🛍️ Shopping</option>
-                <option value="Entertainment" class="bg-[#0e1017]">🎬 Entertainment</option>
-                <option value="Cigarette & Alcohol" class="bg-[#0e1017]">🚬 Cigarette & Alcohol</option>
-                <option value="Other" class="bg-[#0e1017]">✨ Other</option>
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Category</label>
+              <select name="category" class="w-full liquid-input rounded-2xl px-4 py-2.5 text-sm text-slate-200">
+                <option value="Food" class="bg-[#0b0e18]">🍽️ Food & Dining</option>
+                <option value="Travel" class="bg-[#0b0e18]">🚗 Travel & Commute</option>
+                <option value="Bills" class="bg-[#0b0e18]">💡 Bills & Utilities</option>
+                <option value="Groceries" class="bg-[#0b0e18]">🛒 Groceries</option>
+                <option value="Shopping" class="bg-[#0b0e18]">🛍️ Shopping</option>
+                <option value="Entertainment" class="bg-[#0b0e18]">🎬 Entertainment</option>
+                <option value="Cigarette & Alcohol" class="bg-[#0b0e18]">🚬 Cigarette & Alcohol</option>
+                <option value="Other" class="bg-[#0b0e18]">✨ Other</option>
               </select>
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Date</label>
-            <input type="date" name="date" id="datePicker" class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono focus:outline-none transition">
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Date</label>
+            <input type="date" name="date" id="datePicker" class="w-full liquid-input rounded-2xl px-4 py-2.5 text-sm text-slate-200 font-mono">
           </div>
 
-          <button type="submit" class="w-full bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white font-bold text-sm py-2.5 rounded-xl transition shadow-lg shadow-violet-600/25 active:scale-[0.99]">
+          <button type="submit" class="w-full liquid-button text-white font-bold text-sm py-3 rounded-2xl">
             + Add Expense
           </button>
         </form>
       </div>
 
-      <!-- Filters Form -->
-      <div class="lg:col-span-5 glass-card rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
+      <!-- Perspective Filter -->
+      <div class="lg:col-span-5 liquid-glass rounded-3xl p-6 flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-xs font-bold tracking-widest uppercase text-slate-300">Perspective Filter</h2>
             {% if selected_month or selected_category %}
-              <a href="/" class="text-xs text-cyan-400 font-medium hover:underline">Reset</a>
+              <a href="/" class="text-xs text-sky-400 font-medium hover:underline">Reset</a>
             {% endif %}
           </div>
           <form method="GET" action="/" class="space-y-4">
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Month Window</label>
-              <select name="month" onchange="this.form.submit()" class="w-full glass-input rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none">
-                <option value="" class="bg-[#0e1017]">All Timeline History</option>
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Month Window</label>
+              <select name="month" onchange="this.form.submit()" class="w-full liquid-input rounded-2xl px-3.5 py-2 text-sm text-slate-200">
+                <option value="" class="bg-[#0b0e18]">All Timeline History</option>
                 {% for m in available_months %}
-                  <option value="{{ m }}" {% if selected_month == m %}selected{% endif %} class="bg-[#0e1017] font-mono">{{ m }}</option>
+                  <option value="{{ m }}" {% if selected_month == m %}selected{% endif %} class="bg-[#0b0e18] font-mono">{{ m }}</option>
                 {% endfor %}
               </select>
             </div>
 
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Category Sector</label>
-              <select name="category" onchange="this.form.submit()" class="w-full glass-input rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none">
-                <option value="" class="bg-[#0e1017]">All Categories</option>
-                <option value="Food" {% if selected_category == 'Food' %}selected{% endif %} class="bg-[#0e1017]">Food & Dining</option>
-                <option value="Travel" {% if selected_category == 'Travel' %}selected{% endif %} class="bg-[#0e1017]">Travel & Commute</option>
-                <option value="Bills" {% if selected_category == 'Bills' %}selected{% endif %} class="bg-[#0e1017]">Bills & Utilities</option>
-                <option value="Groceries" {% if selected_category == 'Groceries' %}selected{% endif %} class="bg-[#0e1017]">Groceries</option>
-                <option value="Shopping" {% if selected_category == 'Shopping' %}selected{% endif %} class="bg-[#0e1017]">Shopping</option>
-                <option value="Entertainment" {% if selected_category == 'Entertainment' %}selected{% endif %} class="bg-[#0e1017]">Entertainment</option>
-                <option value="Cigarette & Alcohol" {% if selected_category == 'Cigarette & Alcohol' %}selected{% endif %} class="bg-[#0e1017]">Cigarette & Alcohol</option>
-                <option value="Other" {% if selected_category == 'Other' %}selected{% endif %} class="bg-[#0e1017]">Other</option>
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Category Sector</label>
+              <select name="category" onchange="this.form.submit()" class="w-full liquid-input rounded-2xl px-3.5 py-2 text-sm text-slate-200">
+                <option value="" class="bg-[#0b0e18]">All Categories</option>
+                <option value="Food" {% if selected_category == 'Food' %}selected{% endif %} class="bg-[#0b0e18]">Food & Dining</option>
+                <option value="Travel" {% if selected_category == 'Travel' %}selected{% endif %} class="bg-[#0b0e18]">Travel & Commute</option>
+                <option value="Bills" {% if selected_category == 'Bills' %}selected{% endif %} class="bg-[#0b0e18]">Bills & Utilities</option>
+                <option value="Groceries" {% if selected_category == 'Groceries' %}selected{% endif %} class="bg-[#0b0e18]">Groceries</option>
+                <option value="Shopping" {% if selected_category == 'Shopping' %}selected{% endif %} class="bg-[#0b0e18]">Shopping</option>
+                <option value="Entertainment" {% if selected_category == 'Entertainment' %}selected{% endif %} class="bg-[#0b0e18]">Entertainment</option>
+                <option value="Cigarette & Alcohol" {% if selected_category == 'Cigarette & Alcohol' %}selected{% endif %} class="bg-[#0b0e18]">Cigarette & Alcohol</option>
+                <option value="Other" {% if selected_category == 'Other' %}selected{% endif %} class="bg-[#0b0e18]">Other</option>
               </select>
             </div>
           </form>
         </div>
         <div class="pt-4 border-t border-white/[0.08] text-xs text-slate-400 flex justify-between items-center">
           <span>Active View Outlay:</span>
-          <span class="font-mono text-cyan-300 font-bold text-base">₹{{ "%.2f"|format(total) }}</span>
+          <span class="font-mono text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-white font-bold text-base">₹{{ "%.2f"|format(total) }}</span>
         </div>
       </div>
     </div>
 
     <!-- Table Card -->
-    <div class="glass-card rounded-2xl shadow-2xl overflow-hidden">
+    <div class="liquid-glass rounded-3xl overflow-hidden">
       <div class="p-4 sm:px-6 sm:py-4 border-b border-white/[0.08] flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <div>
           <h2 class="text-xs font-bold tracking-widest uppercase text-slate-300">Ledger Records</h2>
-          <span class="text-xs text-slate-500 font-mono" id="txCount">{{ expenses|length }} transactions</span>
+          <span class="text-[11px] text-slate-500 font-mono" id="txCount">{{ expenses|length }} transactions</span>
         </div>
 
         <div class="flex items-center gap-2">
-          <!-- Instant Search -->
+          <!-- Search -->
           <div class="relative">
-            <input type="text" id="tableSearch" placeholder="Filter ledger..." onkeyup="filterTable()"
-                   class="glass-input rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none w-44 sm:w-56">
+            <input type="text" id="tableSearch" placeholder="Search entries..." onkeyup="filterTable()"
+                   class="liquid-input rounded-full px-3.5 py-1.5 text-xs text-white placeholder-slate-500 w-44 sm:w-56">
           </div>
 
           <!-- CSV Export -->
           <a href="/export-csv?month={{ selected_month }}&category={{ selected_category }}"
-             class="inline-flex items-center gap-1.5 bg-white/[0.03] hover:bg-white/[0.08] text-slate-300 border border-white/[0.08] text-xs font-medium px-3 py-1.5 rounded-xl transition">
-            <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+             class="inline-flex items-center gap-1.5 bg-white/[0.04] hover:bg-white/[0.09] text-slate-200 border border-white/[0.1] text-xs font-medium px-3.5 py-1.5 rounded-full transition shadow-sm backdrop-blur-md">
+            <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
             </svg>
             Export
@@ -267,33 +308,34 @@
           </thead>
           <tbody class="divide-y divide-white/[0.06] text-sm">
             {% for item in expenses %}
-            <tr class="hover:bg-white/[0.03] transition table-row-item" data-title="{{ item.title|lower }}" data-cat="{{ item.category|lower }}">
+            <tr class="hover:bg-white/[0.035] transition table-row-item" data-title="{{ item.title|lower }}" data-cat="{{ item.category|lower }}">
               <td class="py-3.5 px-6 text-slate-400 text-xs font-mono">{{ item.date }}</td>
               <td class="py-3.5 px-6 font-medium text-slate-200">{{ item.title }}</td>
               <td class="py-3.5 px-6">
+                <!-- Apple Liquid Pills -->
                 {% if item.category == 'Food' %}
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25">🍽️ Food</span>
+                  <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-200 border border-amber-500/25 backdrop-blur-md">🍽️ Food</span>
                 {% elif item.category == 'Travel' %}
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/25">🚗 Travel</span>
+                  <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-200 border border-sky-500/25 backdrop-blur-md">🚗 Travel</span>
                 {% elif item.category == 'Bills' %}
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/25">💡 Bills</span>
+                  <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-200 border border-indigo-500/25 backdrop-blur-md">💡 Bills</span>
                 {% elif item.category == 'Groceries' %}
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">🛒 Groceries</span>
+                  <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-200 border border-emerald-500/25 backdrop-blur-md">🛒 Groceries</span>
                 {% elif item.category == 'Shopping' %}
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/25">🛍️ Shopping</span>
+                  <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium bg-fuchsia-500/10 text-fuchsia-200 border border-fuchsia-500/25 backdrop-blur-md">🛍️ Shopping</span>
                 {% elif item.category == 'Entertainment' %}
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-500/10 text-violet-300 border border-violet-500/25">🎬 Entertainment</span>
+                  <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-200 border border-purple-500/25 backdrop-blur-md">🎬 Entertainment</span>
                 {% elif item.category == 'Cigarette & Alcohol' %}
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-300 border border-rose-500/25">🚬 Cig & Alcohol</span>
+                  <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-200 border border-rose-500/25 backdrop-blur-md">🚬 Cig & Alcohol</span>
                 {% else %}
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-white/[0.08]">✨ Other</span>
+                  <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium bg-white/[0.05] text-slate-300 border border-white/[0.1] backdrop-blur-md">✨ Other</span>
                 {% endif %}
               </td>
               <td class="py-3.5 px-6 text-right font-bold text-white font-mono">₹{{ "%.2f"|format(item.amount) }}</td>
               <td class="py-3.5 px-6 text-center space-x-2">
                 <button type="button" 
                         onclick="openEditModal('{{ item.id }}', '{{ item.title|replace('\'', '\\\'') }}', '{{ item.amount }}', '{{ item.category }}', '{{ item.date }}')"
-                        class="text-cyan-400 hover:text-cyan-300 text-xs font-medium transition hover:underline">
+                        class="text-sky-400 hover:text-sky-300 text-xs font-medium transition hover:underline">
                   Edit
                 </button>
                 <a href="/delete/{{ item.id }}" class="text-rose-400/80 hover:text-rose-300 text-xs font-medium transition hover:underline" onclick="return confirm('Delete this record?')">
@@ -315,24 +357,24 @@
 
   </div>
 
-  <!-- Target Modal -->
-  <div id="budgetModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="glass-card rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-white/[0.12]">
+  <!-- Calibrate Target Modal -->
+  <div id="budgetModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="liquid-glass rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
       <h3 class="text-sm font-bold text-white uppercase tracking-wider">Calibrate Target</h3>
       <p class="text-xs text-slate-400">Specify monthly cap to align velocity burn and forecast indicators.</p>
       
       <form action="/set-budget" method="POST" class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Monthly Limit (₹)</label>
+          <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1.5">Monthly Limit (₹)</label>
           <input type="number" step="100" name="budget" value="{{ budget }}" required
-                 class="w-full glass-input rounded-xl px-4 py-2 text-sm text-white font-mono focus:outline-none">
+                 class="w-full liquid-input rounded-2xl px-4 py-2 text-sm text-white font-mono">
         </div>
         <div class="flex gap-2 justify-end">
           <button type="button" onclick="document.getElementById('budgetModal').classList.add('hidden')"
                   class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-white/[0.06] transition">
             Cancel
           </button>
-          <button type="submit" class="bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-lg shadow-violet-500/20">
+          <button type="submit" class="liquid-button text-white font-bold px-4 py-2 rounded-xl text-xs">
             Apply Target
           </button>
         </div>
@@ -341,8 +383,8 @@
   </div>
 
   <!-- Edit Transaction Modal -->
-  <div id="editModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="glass-card rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-white/[0.12]">
+  <div id="editModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="liquid-glass rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
       <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
         <h3 class="text-xs font-bold text-white uppercase tracking-widest">Edit Transaction</h3>
         <button onclick="document.getElementById('editModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg leading-none">&times;</button>
@@ -350,36 +392,36 @@
 
       <form id="editForm" method="POST" class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Description</label>
+          <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1.5">Description</label>
           <input type="text" id="editTitle" name="title" required
-                 class="w-full glass-input rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
+                 class="w-full liquid-input rounded-2xl px-4 py-2 text-sm text-white">
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Amount (₹)</label>
+            <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1.5">Amount (₹)</label>
             <input type="number" step="0.01" id="editAmount" name="amount" required
-                 class="w-full glass-input rounded-xl px-4 py-2 text-sm text-white font-mono focus:outline-none">
+                   class="w-full liquid-input rounded-2xl px-4 py-2 text-sm text-white font-mono">
           </div>
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Category</label>
-            <select id="editCategory" name="category" class="w-full glass-input rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
-              <option value="Food" class="bg-[#0e1017]">🍽️ Food & Dining</option>
-              <option value="Travel" class="bg-[#0e1017]">🚗 Travel & Commute</option>
-              <option value="Bills" class="bg-[#0e1017]">💡 Bills & Utilities</option>
-              <option value="Groceries" class="bg-[#0e1017]">🛒 Groceries</option>
-              <option value="Shopping" class="bg-[#0e1017]">🛍️ Shopping</option>
-              <option value="Entertainment" class="bg-[#0e1017]">🎬 Entertainment</option>
-              <option value="Cigarette & Alcohol" class="bg-[#0e1017]">🚬 Cigarette & Alcohol</option>
-              <option value="Other" class="bg-[#0e1017]">✨ Other</option>
+            <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1.5">Category</label>
+            <select id="editCategory" name="category" class="w-full liquid-input rounded-2xl px-3 py-2 text-sm text-slate-200">
+              <option value="Food" class="bg-[#0b0e18]">🍽️ Food & Dining</option>
+              <option value="Travel" class="bg-[#0b0e18]">🚗 Travel & Commute</option>
+              <option value="Bills" class="bg-[#0b0e18]">💡 Bills & Utilities</option>
+              <option value="Groceries" class="bg-[#0b0e18]">🛒 Groceries</option>
+              <option value="Shopping" class="bg-[#0b0e18]">🛍️ Shopping</option>
+              <option value="Entertainment" class="bg-[#0b0e18]">🎬 Entertainment</option>
+              <option value="Cigarette & Alcohol" class="bg-[#0b0e18]">🚬 Cigarette & Alcohol</option>
+              <option value="Other" class="bg-[#0b0e18]">✨ Other</option>
             </select>
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Date</label>
+          <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1.5">Date</label>
           <input type="date" id="editDate" name="date" required
-                 class="w-full glass-input rounded-xl px-4 py-2 text-sm text-white font-mono focus:outline-none">
+                 class="w-full liquid-input rounded-2xl px-4 py-2 text-sm text-white font-mono">
         </div>
 
         <div class="flex gap-2 justify-end pt-2">
@@ -387,7 +429,7 @@
                   class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-white/[0.06] transition">
             Cancel
           </button>
-          <button type="submit" class="bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-lg shadow-violet-500/25">
+          <button type="submit" class="liquid-button text-white font-bold px-4 py-2 rounded-xl text-xs">
             Save Modifications
           </button>
         </div>
@@ -404,6 +446,7 @@
     const trendDates = {{ trend_dates_json|safe }};
     const trendAmounts = {{ trend_amounts_json|safe }};
 
+    // Category Doughnut Chart with Apple Specular Colors
     const catCtx = document.getElementById('categoryChart').getContext('2d');
     if (categories.length > 0) {
       new Chart(catCtx, {
@@ -413,11 +456,18 @@
           datasets: [{
             data: amounts,
             backgroundColor: [
-              '#8b5cf6', '#06b6d4', '#3b82f6', '#10b981', '#f43f5e', '#f59e0b', '#ec4899', '#64748b'
+              '#38bdf8', // Sky Cyan
+              '#818cf8', // Soft Indigo
+              '#c084fc', // Lilac
+              '#34d399', // Mint Emerald
+              '#fb7185', // Coral Rose
+              '#fbbf24', // Amber
+              '#f472b6', // Soft Pink
+              '#94a3b8'  // Steel
             ],
-            borderWidth: 1,
-            borderColor: '#090a0f',
-            hoverOffset: 6
+            borderWidth: 2,
+            borderColor: '#0b0e18',
+            hoverOffset: 7
           }]
         },
         options: {
@@ -430,20 +480,22 @@
                 color: '#94a3b8', 
                 boxWidth: 8, 
                 padding: 10, 
-                font: { size: 10, family: "'Plus Jakarta Sans', sans-serif" } 
+                font: { size: 10 } 
               }
             }
           },
-          cutout: '72%'
+          cutout: '74%'
         }
       });
     }
 
+    // Velocity Trend Line Chart with Liquid Gradient
     const trendCtx = document.getElementById('trendChart').getContext('2d');
     if (trendDates.length > 0) {
       const gradient = trendCtx.createLinearGradient(0, 0, 0, 220);
-      gradient.addColorStop(0, 'rgba(6, 182, 212, 0.25)');
-      gradient.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
+      gradient.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+      gradient.addColorStop(0.6, 'rgba(99, 102, 241, 0.12)');
+      gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
 
       new Chart(trendCtx, {
         type: 'line',
@@ -452,15 +504,16 @@
           datasets: [{
             label: 'Burn (₹)',
             data: trendAmounts,
-            borderColor: '#06b6d4',
+            borderColor: '#38bdf8',
             backgroundColor: gradient,
             fill: true,
-            tension: 0.35,
+            tension: 0.38,
             pointRadius: 4,
-            pointHoverRadius: 6,
-            pointBackgroundColor: '#8b5cf6',
-            pointBorderColor: '#06b6d4',
-            borderWidth: 2
+            pointHoverRadius: 7,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#38bdf8',
+            pointBorderWidth: 2,
+            borderWidth: 2.5
           }]
         },
         options: {
@@ -498,7 +551,7 @@
       });
 
       const countEl = document.getElementById('txCount');
-      if (countEl) countEl.innerText = `${visibleCount} visible`;
+      if (countEl) countEl.innerText = `${visibleCount} transactions`;
     }
 
     function openEditModal(id, title, amount, category, date) {
