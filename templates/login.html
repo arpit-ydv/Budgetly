@@ -58,7 +58,6 @@
 </head>
 <body class="text-slate-100 min-h-screen flex items-center justify-center p-4 selection:bg-sky-400 selection:text-slate-950">
 
-  <!-- Specular Ambient Orbs -->
   <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
     <div class="absolute -top-32 -left-32 w-[30rem] h-[30rem] bg-indigo-500/20 rounded-full blur-[140px]"></div>
     <div class="absolute -bottom-32 -right-32 w-[32rem] h-[32rem] bg-sky-400/18 rounded-full blur-[140px]"></div>
@@ -67,7 +66,6 @@
   <div class="relative z-10 w-full max-w-md">
     <div class="liquid-glass rounded-3xl p-8 sm:p-10 space-y-6">
       
-     <!-- Brand & Title -->
       <div class="text-center space-y-1">
         <h1 class="text-3xl font-bold tracking-tight text-white">
           Budgetly<span class="text-sky-400">.</span>
@@ -75,7 +73,6 @@
         <p class="text-xs text-slate-400">Authenticate to access your financial telemetry</p>
       </div>
 
-      <!-- Flash Messages -->
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           {% for category, message in messages %}
@@ -86,11 +83,10 @@
         {% endif %}
       {% endwith %}
 
-      <!-- Form -->
       <form action="/login" method="POST" class="space-y-4">
         <div>
-          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Username</label>
-          <input type="text" name="username" placeholder="Enter username" required autocomplete="username"
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Username or Email</label>
+          <input type="text" name="login_input" placeholder="e.g. arpit or arpit@gmail.com" required autocomplete="username"
                  class="w-full liquid-input rounded-2xl px-4 py-2.5 text-sm text-white placeholder-slate-500">
         </div>
 
@@ -105,7 +101,6 @@
         </button>
       </form>
 
-      <!-- Footer Link -->
       <div class="pt-2 text-center text-xs text-slate-400">
         Don't have an account? 
         <a href="/register" class="text-sky-300 hover:text-sky-200 font-semibold transition hover:underline">

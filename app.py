@@ -3,6 +3,10 @@ import io
 import csv
 import json
 import calendar
+import smtplib
+import threading
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
@@ -13,7 +17,6 @@ if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    # Strip channel_binding if present (causes psycopg2 handshakes to fail)
     if "channel_binding=" in DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace("&channel_binding=require", "").replace("channel_binding=require", "")
         if DATABASE_URL.endswith("?") or DATABASE_URL.endswith("&"):
@@ -27,6 +30,12 @@ if DATABASE_URL:
         from psycopg2.extras import RealDictCursor
 else:
     import sqlite3
+
+# Email SMTP Credentials (Configured via Render Environment)
+MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
+MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
+MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "super-secret-budgetly-key-change-in-prod")
@@ -48,9 +57,19 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
                     username VARCHAR(100) UNIQUE NOT NULL,
+                    email VARCHAR(255) UNIQUE,
                     password_hash TEXT NOT NULL,
                     monthly_budget NUMERIC DEFAULT 10000.0
                 );
+            """)
+            # Safe migration if table already exists
+            cursor.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='email') THEN
+                        ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;
+                    END IF;
+                END $$;
             """)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS expenses (
@@ -67,6 +86,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE NOT NULL,
+                    email TEXT UNIQUE,
                     password_hash TEXT NOT NULL,
                     monthly_budget REAL DEFAULT 10000.0
                 );
@@ -82,6 +102,10 @@ def init_db():
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 );
             """)
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN email TEXT UNIQUE")
+            except sqlite3.OperationalError:
+                pass
             try:
                 cursor.execute("ALTER TABLE users ADD COLUMN monthly_budget REAL DEFAULT 10000.0")
             except sqlite3.OperationalError:
@@ -109,6 +133,43 @@ def login_required(f):
 def get_ph():
     return "%s" if DATABASE_URL else "?"
 
+# Non-blocking background email dispatch
+def send_budget_alert_async(to_email, username, spent, budget, month_name):
+    def _send():
+        if not MAIL_USERNAME or not MAIL_PASSWORD or not to_email:
+            return
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"⚠️ Budget Alert: You exceeded your {month_name} budget!"
+            msg["From"] = f"Budgetly <{MAIL_USERNAME}>"
+            msg["To"] = to_email
+
+            html_content = f"""
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0b0e18; color: #e2e8f0; padding: 30px; border-radius: 16px; max-width: 500px; margin: auto;">
+                <h2 style="color: #38bdf8; margin-top: 0;">Budgetly<span style="color: #818cf8;">.</span></h2>
+                <h3 style="color: #f43f5e; margin-bottom: 8px;">Spending Limit Exceeded</h3>
+                <p style="font-size: 14px; color: #94a3b8;">Hi <strong>{username}</strong>,</p>
+                <p style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">
+                    Your recorded expenses for <strong>{month_name}</strong> have crossed your target budget.
+                </p>
+                <div style="background: rgba(255, 255, 255, 0.05); padding: 18px; border-radius: 12px; margin: 20px 0; border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div style="font-size: 13px; color: #94a3b8; margin-bottom: 6px;">Total Outlay: <strong style="color: #f43f5e; font-size: 16px;">₹{spent:,.2f}</strong></div>
+                    <div style="font-size: 13px; color: #94a3b8;">Allocated Cap: <strong style="color: #ffffff; font-size: 14px;">₹{budget:,.2f}</strong></div>
+                </div>
+                <p style="font-size: 12px; color: #64748b;">Visit your Budgetly dashboard to view transaction velocity or adjust your monthly cap.</p>
+            </div>
+            """
+            msg.attach(MIMEText(html_content, "html"))
+
+            with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as server:
+                server.starttls()
+                server.login(MAIL_USERNAME, MAIL_PASSWORD)
+                server.sendmail(MAIL_USERNAME, [to_email], msg.as_string())
+        except Exception as ex:
+            print(f"Failed to send email alert: {ex}")
+
+    threading.Thread(target=_send).start()
+
 # --- Auth Routes ---
 
 @app.route("/register", methods=["GET", "POST"])
@@ -118,10 +179,11 @@ def register():
 
     if request.method == "POST":
         username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
 
-        if not username or not password:
-            flash("Username and password are required.", "error")
+        if not username or not password or not email:
+            flash("Username, email, and password are required.", "error")
             return redirect(url_for("register"))
 
         hashed_pw = generate_password_hash(password)
@@ -131,14 +193,14 @@ def register():
 
         try:
             cursor.execute(
-                f"INSERT INTO users (username, password_hash) VALUES ({ph}, {ph})",
-                (username, hashed_pw)
+                f"INSERT INTO users (username, email, password_hash) VALUES ({ph}, {ph}, {ph})",
+                (username, email, hashed_pw)
             )
             conn.commit()
-            flash("Account created! Please sign in.", "success")
+            flash("Account initialized! Please sign in.", "success")
             return redirect(url_for("login"))
         except Exception:
-            flash("Username already taken.", "error")
+            flash("Username or Email already registered.", "error")
             return redirect(url_for("register"))
         finally:
             cursor.close()
@@ -152,13 +214,17 @@ def login():
         return redirect(url_for("index"))
 
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
+        login_input = request.form.get("login_input", "").strip()
         password = request.form.get("password", "")
         conn = get_db()
         cursor = conn.cursor()
         ph = get_ph()
 
-        cursor.execute(f"SELECT * FROM users WHERE username = {ph}", (username,))
+        # Allows logging in with either username or email
+        cursor.execute(
+            f"SELECT * FROM users WHERE LOWER(username) = LOWER({ph}) OR LOWER(email) = LOWER({ph})",
+            (login_input, login_input)
+        )
         user = cursor.fetchone()
         cursor.close()
         conn.close()
@@ -166,9 +232,10 @@ def login():
         if user and check_password_hash(user["password_hash"], password):
             session["user_id"] = user["id"]
             session["username"] = user["username"]
+            session["email"] = user.get("email") if isinstance(user, dict) else user["email"]
             return redirect(url_for("index"))
         else:
-            flash("Invalid username or password.", "error")
+            flash("Invalid credentials.", "error")
             return redirect(url_for("login"))
 
     return render_template("login.html")
@@ -192,9 +259,10 @@ def index():
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute(f"SELECT monthly_budget FROM users WHERE id = {ph}", (user_id,))
+    cursor.execute(f"SELECT monthly_budget, email FROM users WHERE id = {ph}", (user_id,))
     user = cursor.fetchone()
     budget = float(user["monthly_budget"]) if user and user.get("monthly_budget") else 10000.0
+    user_email = user.get("email") if user else ""
 
     date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
 
@@ -305,6 +373,7 @@ def index():
     return render_template(
         "index.html",
         username=session["username"],
+        user_email=user_email,
         expenses=expenses,
         total=total,
         monthly_spent=monthly_spent,
@@ -327,19 +396,30 @@ def index():
 @login_required
 def set_budget():
     new_budget = request.form.get("budget")
+    new_email = request.form.get("email", "").strip().lower()
+    user_id = session["user_id"]
+    ph = get_ph()
+
+    conn = get_db()
+    cursor = conn.cursor()
     if new_budget:
         try:
             budget_val = float(new_budget)
             if budget_val > 0:
-                conn = get_db()
-                cursor = conn.cursor()
-                ph = get_ph()
-                cursor.execute(f"UPDATE users SET monthly_budget = {ph} WHERE id = {ph}", (budget_val, session["user_id"]))
-                conn.commit()
-                cursor.close()
-                conn.close()
+                cursor.execute(f"UPDATE users SET monthly_budget = {ph} WHERE id = {ph}", (budget_val, user_id))
         except ValueError:
             pass
+
+    if new_email:
+        try:
+            cursor.execute(f"UPDATE users SET email = {ph} WHERE id = {ph}", (new_email, user_id))
+            session["email"] = new_email
+        except Exception:
+            pass
+
+    conn.commit()
+    cursor.close()
+    conn.close()
     return redirect(request.referrer or url_for("index"))
 
 @app.route("/add", methods=["POST"])
@@ -369,8 +449,31 @@ def add_expense():
                         (user_id, title, valid_amount, category)
                     )
                 conn.commit()
+
+                # Check if this expense pushed current month's spend over budget
+                date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
+                tx_month = date[:7] if date else datetime.now().strftime("%Y-%m")
+
+                cursor.execute(f"SELECT email, monthly_budget, username FROM users WHERE id = {ph}", (user_id,))
+                user_info = cursor.fetchone()
+
+                cursor.execute(
+                    f"SELECT COALESCE(SUM(amount), 0) as m_sum FROM expenses WHERE user_id = {ph} AND {date_fn} = {ph}",
+                    (user_id, tx_month)
+                )
+                m_sum_row = cursor.fetchone()
+                total_month = float(m_sum_row["m_sum"] if DATABASE_URL else m_sum_row[0])
+
                 cursor.close()
                 conn.close()
+
+                if user_info:
+                    budget_limit = float(user_info["monthly_budget"] or 10000.0)
+                    user_email = user_info["email"]
+                    username = user_info["username"]
+                    # If this transaction causes the breach, trigger the email alert
+                    if total_month > budget_limit and (total_month - valid_amount) <= budget_limit:
+                        send_budget_alert_async(user_email, username, total_month, budget_limit, tx_month)
         except ValueError:
             pass
 
