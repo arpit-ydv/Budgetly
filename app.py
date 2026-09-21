@@ -3,15 +3,14 @@ import io
 import csv
 import json
 import calendar
-import smtplib
 import threading
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
 from werkzeug.security import generate_password_hash, check_password_hash
+import resend
 
+# Database configuration: PostgreSQL on Render/Neon, fallback to SQLite locally
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
@@ -31,11 +30,10 @@ if DATABASE_URL:
 else:
     import sqlite3
 
-# Email SMTP Credentials (Configured via Render Environment)
-MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
-MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
-MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
-MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
+# Resend API Key (Configured in Render -> Environment)
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "super-secret-budgetly-key-change-in-prod")
@@ -132,16 +130,15 @@ def login_required(f):
 def get_ph():
     return "%s" if DATABASE_URL else "?"
 
+# =====================================================================
+# EMAIL ALERT DISPATCHER (RESEND HTTPS API - BYPASSES RENDER SMTP BLOCK)
+# =====================================================================
 def send_budget_alert_async(to_email, username, spent, budget, month_name):
     def _send():
-        if not MAIL_USERNAME or not MAIL_PASSWORD or not to_email:
+        if not RESEND_API_KEY or not to_email:
+            print("Alert skipped: Missing RESEND_API_KEY or recipient email.")
             return
         try:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = f"⚠️ Budget Alert: You exceeded your {month_name} budget!"
-            msg["From"] = f"Budgetly <{MAIL_USERNAME}>"
-            msg["To"] = to_email
-
             html_content = f"""
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #07090e; color: #e2e8f0; padding: 30px; border-radius: 20px; max-width: 500px; margin: auto; border: 1px solid rgba(255,255,255,0.1);">
                 <h2 style="color: #38bdf8; margin-top: 0; font-size: 24px;">Budgetly<span style="color: #38bdf8;">.</span></h2>
@@ -157,14 +154,17 @@ def send_budget_alert_async(to_email, username, spent, budget, month_name):
                 <p style="font-size: 12px; color: #64748b;">Visit your Budgetly dashboard to view transaction velocity or adjust your monthly cap.</p>
             </div>
             """
-            msg.attach(MIMEText(html_content, "html"))
 
-            with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as server:
-                server.starttls()
-                server.login(MAIL_USERNAME, MAIL_PASSWORD)
-                server.sendmail(MAIL_USERNAME, [to_email], msg.as_string())
+            params = {
+                "from": "Budgetly <onboarding@resend.dev>",
+                "to": [to_email],
+                "subject": f"⚠️ Budget Alert: You exceeded your {month_name} budget!",
+                "html": html_content,
+            }
+            res = resend.Emails.send(params)
+            print(f"Alert sent successfully via Resend: {res}")
         except Exception as ex:
-            print(f"Failed to send email alert: {ex}")
+            print(f"Failed to send email alert via Resend: {ex}")
 
     threading.Thread(target=_send).start()
 
@@ -218,7 +218,6 @@ def login():
         cursor = conn.cursor()
         ph = get_ph()
 
-        # Seamless check against either username or linked email
         cursor.execute(
             f"SELECT * FROM users WHERE LOWER(username) = LOWER({ph}) OR LOWER(email) = LOWER({ph})",
             (login_input, login_input)
@@ -390,7 +389,6 @@ def index():
         trend_amounts_json=json.dumps(trend_amounts)
     )
 
-# Allows existing users to link or update their email
 @app.route("/link-email", methods=["POST"])
 @login_required
 def link_email():
@@ -464,6 +462,7 @@ def add_expense():
                     )
                 conn.commit()
 
+                # Calculate whether this entry pushed spending past monthly ceiling
                 date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
                 tx_month = date[:7] if date else datetime.now().strftime("%Y-%m")
 
@@ -480,6 +479,7 @@ def add_expense():
                 cursor.close()
                 conn.close()
 
+                # Trigger the email alert
                 if user_info and user_info.get("email"):
                     budget_limit = float(user_info["monthly_budget"] or 10000.0)
                     user_email = user_info["email"]
