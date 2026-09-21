@@ -88,15 +88,19 @@
 
   <div class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-10 space-y-6">
     
-<!-- Header -->
+  <!-- Header -->
     <header class="flex items-center justify-between border-b border-white/[0.08] pb-6">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-white">
           Budgetly<span class="text-sky-400">.</span>
         </h1>
-        <p class="text-xs text-slate-400">Welcome, <span class="text-sky-300 font-semibold">Arpit</span></p>
+        <p class="text-xs text-slate-400">Welcome, <span class="text-sky-300 font-semibold">{{ username }}</span></p>
       </div>
       <div class="flex items-center gap-2 sm:gap-3">
+        <button onclick="document.getElementById('accountModal').classList.remove('hidden')" class="text-xs text-slate-300 hover:text-white font-medium px-4 py-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] transition shadow-sm backdrop-blur-md flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full {% if user_email %}bg-emerald-400{% else %}bg-amber-400{% endif %}"></span>
+          {% if user_email %}Account{% else %}Link Email{% endif %}
+        </button>
         <button onclick="document.getElementById('budgetModal').classList.remove('hidden')" class="text-xs text-sky-200 hover:text-white font-medium px-4 py-1.5 rounded-full border border-sky-400/30 bg-sky-500/10 hover:bg-sky-500/20 transition shadow-sm backdrop-blur-md">
           Set Target
         </button>
@@ -562,5 +566,37 @@
       document.getElementById('editModal').classList.remove('hidden');
     }
   </script>
+  <!-- Link Email / Account Modal -->
+  <div id="accountModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="liquid-glass rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
+        <h3 class="text-xs font-bold text-white uppercase tracking-widest">Account & Email Settings</h3>
+        <button onclick="document.getElementById('accountModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg leading-none">&times;</button>
+      </div>
+
+      <div class="text-xs text-slate-400 space-y-1">
+        <p>Username: <strong class="text-white">{{ username }}</strong></p>
+        <p>Status: {% if user_email %}<span class="text-emerald-400 font-semibold">Linked</span>{% else %}<span class="text-amber-400 font-semibold">Not Linked</span>{% endif %}</p>
+      </div>
+
+      <form action="/link-email" method="POST" class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1.5">Linked Email Address</label>
+          <input type="email" name="email" value="{{ user_email or '' }}" placeholder="your-email@example.com" required
+                 class="w-full liquid-input rounded-2xl px-4 py-2 text-sm text-white">
+          <p class="text-[10px] text-slate-500 mt-1">You can use this email to log in and receive over-budget alerts.</p>
+        </div>
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" onclick="document.getElementById('accountModal').classList.add('hidden')"
+                  class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-white/[0.06] transition">
+            Close
+          </button>
+          <button type="submit" class="liquid-button text-white font-bold px-4 py-2 rounded-xl text-xs">
+            Save & Link Email
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </body>
 </html>

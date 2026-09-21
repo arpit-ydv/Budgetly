@@ -62,7 +62,6 @@ def init_db():
                     monthly_budget NUMERIC DEFAULT 10000.0
                 );
             """)
-            # Safe migration if table already exists
             cursor.execute("""
                 DO $$
                 BEGIN
@@ -133,7 +132,6 @@ def login_required(f):
 def get_ph():
     return "%s" if DATABASE_URL else "?"
 
-# Non-blocking background email dispatch
 def send_budget_alert_async(to_email, username, spent, budget, month_name):
     def _send():
         if not MAIL_USERNAME or not MAIL_PASSWORD or not to_email:
@@ -145,14 +143,14 @@ def send_budget_alert_async(to_email, username, spent, budget, month_name):
             msg["To"] = to_email
 
             html_content = f"""
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0b0e18; color: #e2e8f0; padding: 30px; border-radius: 16px; max-width: 500px; margin: auto;">
-                <h2 style="color: #38bdf8; margin-top: 0;">Budgetly<span style="color: #818cf8;">.</span></h2>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #07090e; color: #e2e8f0; padding: 30px; border-radius: 20px; max-width: 500px; margin: auto; border: 1px solid rgba(255,255,255,0.1);">
+                <h2 style="color: #38bdf8; margin-top: 0; font-size: 24px;">Budgetly<span style="color: #38bdf8;">.</span></h2>
                 <h3 style="color: #f43f5e; margin-bottom: 8px;">Spending Limit Exceeded</h3>
                 <p style="font-size: 14px; color: #94a3b8;">Hi <strong>{username}</strong>,</p>
                 <p style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">
-                    Your recorded expenses for <strong>{month_name}</strong> have crossed your target budget.
+                    Your recorded outlays for <strong>{month_name}</strong> have crossed your target ceiling.
                 </p>
-                <div style="background: rgba(255, 255, 255, 0.05); padding: 18px; border-radius: 12px; margin: 20px 0; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="background: rgba(255, 255, 255, 0.05); padding: 18px; border-radius: 14px; margin: 20px 0; border: 1px solid rgba(255, 255, 255, 0.1);">
                     <div style="font-size: 13px; color: #94a3b8; margin-bottom: 6px;">Total Outlay: <strong style="color: #f43f5e; font-size: 16px;">₹{spent:,.2f}</strong></div>
                     <div style="font-size: 13px; color: #94a3b8;">Allocated Cap: <strong style="color: #ffffff; font-size: 14px;">₹{budget:,.2f}</strong></div>
                 </div>
@@ -170,7 +168,7 @@ def send_budget_alert_async(to_email, username, spent, budget, month_name):
 
     threading.Thread(target=_send).start()
 
-# --- Auth Routes ---
+# --- Authentication Routes ---
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -200,7 +198,7 @@ def register():
             flash("Account initialized! Please sign in.", "success")
             return redirect(url_for("login"))
         except Exception:
-            flash("Username or Email already registered.", "error")
+            flash("Username or Email is already registered.", "error")
             return redirect(url_for("register"))
         finally:
             cursor.close()
@@ -220,7 +218,7 @@ def login():
         cursor = conn.cursor()
         ph = get_ph()
 
-        # Allows logging in with either username or email
+        # Seamless check against either username or linked email
         cursor.execute(
             f"SELECT * FROM users WHERE LOWER(username) = LOWER({ph}) OR LOWER(email) = LOWER({ph})",
             (login_input, login_input)
@@ -262,7 +260,7 @@ def index():
     cursor.execute(f"SELECT monthly_budget, email FROM users WHERE id = {ph}", (user_id,))
     user = cursor.fetchone()
     budget = float(user["monthly_budget"]) if user and user.get("monthly_budget") else 10000.0
-    user_email = user.get("email") if user else ""
+    user_email = user.get("email") if user and user.get("email") else ""
 
     date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
 
@@ -392,34 +390,50 @@ def index():
         trend_amounts_json=json.dumps(trend_amounts)
     )
 
-@app.route("/set-budget", methods=["POST"])
+# Allows existing users to link or update their email
+@app.route("/link-email", methods=["POST"])
 @login_required
-def set_budget():
-    new_budget = request.form.get("budget")
+def link_email():
     new_email = request.form.get("email", "").strip().lower()
     user_id = session["user_id"]
     ph = get_ph()
 
-    conn = get_db()
-    cursor = conn.cursor()
+    if new_email:
+        conn = get_db()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"UPDATE users SET email = {ph} WHERE id = {ph}", (new_email, user_id))
+            conn.commit()
+            session["email"] = new_email
+            flash("Email address linked successfully!", "success")
+        except Exception:
+            flash("That email is already linked to another account.", "error")
+        finally:
+            cursor.close()
+            conn.close()
+
+    return redirect(url_for("index"))
+
+@app.route("/set-budget", methods=["POST"])
+@login_required
+def set_budget():
+    new_budget = request.form.get("budget")
+    user_id = session["user_id"]
+    ph = get_ph()
+
     if new_budget:
         try:
             budget_val = float(new_budget)
             if budget_val > 0:
+                conn = get_db()
+                cursor = conn.cursor()
                 cursor.execute(f"UPDATE users SET monthly_budget = {ph} WHERE id = {ph}", (budget_val, user_id))
+                conn.commit()
+                cursor.close()
+                conn.close()
         except ValueError:
             pass
 
-    if new_email:
-        try:
-            cursor.execute(f"UPDATE users SET email = {ph} WHERE id = {ph}", (new_email, user_id))
-            session["email"] = new_email
-        except Exception:
-            pass
-
-    conn.commit()
-    cursor.close()
-    conn.close()
     return redirect(request.referrer or url_for("index"))
 
 @app.route("/add", methods=["POST"])
@@ -450,7 +464,6 @@ def add_expense():
                     )
                 conn.commit()
 
-                # Check if this expense pushed current month's spend over budget
                 date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
                 tx_month = date[:7] if date else datetime.now().strftime("%Y-%m")
 
@@ -467,11 +480,10 @@ def add_expense():
                 cursor.close()
                 conn.close()
 
-                if user_info:
+                if user_info and user_info.get("email"):
                     budget_limit = float(user_info["monthly_budget"] or 10000.0)
                     user_email = user_info["email"]
                     username = user_info["username"]
-                    # If this transaction causes the breach, trigger the email alert
                     if total_month > budget_limit and (total_month - valid_amount) <= budget_limit:
                         send_budget_alert_async(user_email, username, total_month, budget_limit, tx_month)
         except ValueError:
