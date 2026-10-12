@@ -258,8 +258,8 @@ def index():
 
     cursor.execute(f"SELECT monthly_budget, email FROM users WHERE id = {ph}", (user_id,))
     user = cursor.fetchone()
-    budget = float(user["monthly_budget"]) if user and user.get("monthly_budget") else 10000.0
-    user_email = user.get("email") if user and user.get("email") else ""
+    budget = float(user["monthly_budget"]) if user and user["monthly_budget"] else 10000.0
+    user_email = user["email"] if user and user["email"] else ""
 
     date_fn = "TO_CHAR(date, 'YYYY-MM')" if DATABASE_URL else "strftime('%Y-%m', date)"
 
@@ -360,7 +360,7 @@ def index():
         ORDER BY month_val DESC
     """, (user_id,))
     months_rows = cursor.fetchall()
-    available_months = [row["month_val"] for row in months_rows if row.get("month_val") or (not DATABASE_URL and row[0])]
+    available_months = [row["month_val"] for row in months_rows if row["month_val"]]
 
     cursor.close()
     conn.close()
@@ -480,7 +480,7 @@ def add_expense():
                 conn.close()
 
                 # Trigger the email alert
-                if user_info and user_info.get("email"):
+                if user_info and user_info["email"]:
                     budget_limit = float(user_info["monthly_budget"] or 10000.0)
                     user_email = user_info["email"]
                     username = user_info["username"]
