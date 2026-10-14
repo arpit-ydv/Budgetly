@@ -155,8 +155,9 @@
       </div>
       <div class="w-full bg-[#0b0e18]/80 h-3 rounded-full overflow-hidden p-0.5 border border-white/[0.08] shadow-inner">
         <div 
+          id="budgetBar"
+          data-width="{{ budget_pct }}"
           class="h-full rounded-full transition-all duration-700 shadow-md {% if budget_pct >= 90 %}bg-gradient-to-r from-rose-500 to-rose-600 shadow-rose-500/30{% elif budget_pct >= 75 %}bg-gradient-to-r from-amber-400 to-amber-500 shadow-amber-500/30{% else %}bg-gradient-to-r from-indigo-500 via-sky-400 to-teal-300 shadow-sky-400/40{% endif %}" 
-          style="width: {{ budget_pct }}%"
         ></div>
       </div>
     </div>
@@ -337,7 +338,12 @@
               <td class="py-3.5 px-6 text-right font-bold text-white font-mono">₹{{ "%.2f"|format(item.amount) }}</td>
               <td class="py-3.5 px-6 text-center space-x-2">
                 <button type="button" 
-                        onclick="openEditModal('{{ item.id }}', '{{ item.title|replace('\'', '\\\'') }}', '{{ item.amount }}', '{{ item.category }}', '{{ item.date }}')"
+                        data-id="{{ item.id }}"
+                        data-title="{{ item.title }}"
+                        data-amount="{{ item.amount }}"
+                        data-category="{{ item.category }}"
+                        data-date="{{ item.date }}"
+                        onclick="handleEdit(this)"
                         class="text-sky-400 hover:text-sky-300 text-xs font-medium transition hover:underline">
                   Edit
                 </button>
@@ -440,14 +446,30 @@
     </div>
   </div>
 
+  <!-- Embedded Chart Data Payload -->
+  <script id="chartData" type="application/json">
+    {
+      "categories": {{ categories_json|safe }},
+      "amounts": {{ amounts_json|safe }},
+      "trendDates": {{ trend_dates_json|safe }},
+      "trendAmounts": {{ trend_amounts_json|safe }}
+    }
+  </script>
+
   <!-- Chart & Controller Scripts -->
   <script>
-    document.getElementById('datePicker').valueAsDate = new Date();
+    const budgetBar = document.getElementById('budgetBar');
+    if (budgetBar) {
+      budgetBar.style.width = Math.min(Number(budgetBar.dataset.width) || 0, 100) + '%';
+    }
 
-    const categories = {{ categories_json|safe }};
-    const amounts = {{ amounts_json|safe }};
-    const trendDates = {{ trend_dates_json|safe }};
-    const trendAmounts = {{ trend_amounts_json|safe }};
+    document.getElementById('datePicker').value = new Date().toLocaleDateString('en-CA');
+
+    const chartPayload = JSON.parse(document.getElementById('chartData').textContent);
+    const categories = chartPayload.categories || [];
+    const amounts = chartPayload.amounts || [];
+    const trendDates = chartPayload.trendDates || [];
+    const trendAmounts = chartPayload.trendAmounts || [];
 
     // Category Doughnut Chart with Apple Specular Colors
     const catCtx = document.getElementById('categoryChart').getContext('2d');
@@ -555,6 +577,11 @@
 
       const countEl = document.getElementById('txCount');
       if (countEl) countEl.innerText = `${visibleCount} transactions`;
+    }
+
+    function handleEdit(btn) {
+      const d = btn.dataset;
+      openEditModal(d.id, d.title, d.amount, d.category, d.date);
     }
 
     function openEditModal(id, title, amount, category, date) {

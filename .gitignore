@@ -1,4 +1,6 @@
-﻿/venv/
+.env
+.venv/
+venv/
 __pycache__/
 *.pyc
 expenses.db

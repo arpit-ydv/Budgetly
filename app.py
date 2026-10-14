@@ -10,6 +10,12 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.security import generate_password_hash, check_password_hash
 import resend
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Database configuration: PostgreSQL on Render/Neon, fallback to SQLite locally
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
@@ -21,12 +27,8 @@ if DATABASE_URL:
         if DATABASE_URL.endswith("?") or DATABASE_URL.endswith("&"):
             DATABASE_URL = DATABASE_URL[:-1]
 
-    try:
-        import psycopg2
-        from psycopg2.extras import RealDictCursor
-    except ImportError:
-        import psycopg2_binary as psycopg2
-        from psycopg2.extras import RealDictCursor
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
 else:
     import sqlite3
 
@@ -36,7 +38,7 @@ if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "super-secret-budgetly-key-change-in-prod")
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 DB_NAME = "expenses.db"
 
 def get_db():

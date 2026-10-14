@@ -1,6 +1,8 @@
 ### 1. Clone & create virtual environment
 
 ```powershell
+git clone https://github.com/arpit-ydv/Budgetly.git
+cd Budgetly
 python -m venv .venv
 .venv\Scripts\activate
 ```
